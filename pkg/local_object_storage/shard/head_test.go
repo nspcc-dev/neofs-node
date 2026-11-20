@@ -6,8 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	iobject "github.com/nspcc-dev/neofs-node/internal/object"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
+	neofscryptotest "github.com/nspcc-dev/neofs-sdk-go/crypto/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/stretchr/testify/require"
@@ -63,6 +65,26 @@ func testShardHead(t *testing.T, hasWriteCache bool) {
 		head, err := sh.Head(parent.Address(), false)
 		require.NoError(t, err)
 		require.Equal(t, parent.CutPayload(), head)
+	})
+
+	t.Run("EC-encoded first part of split object", func(t *testing.T) {
+		cnr := cidtest.ID()
+
+		parent := generateObjectWithCID(cnr)
+		addAttribute(parent, "foo", "bar")
+		parent.ResetID()
+
+		first := generateObjectWithCID(cnr)
+		first.SetParent(parent.CutPayload())
+
+		part, err := iec.FormObjectForECPart(neofscryptotest.Signer(), *first, first.Payload(), iec.PartInfo{})
+		require.NoError(t, err)
+		require.NoError(t, sh.Put(&part, nil))
+
+		head, err := sh.Head(first.Address(), true)
+		require.NoError(t, err)
+		require.Equal(t, first.CutPayload(), head)
+		require.Equal(t, parent.CutPayload(), head.Parent())
 	})
 }
 

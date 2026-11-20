@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -21,11 +22,14 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	objecttest "github.com/nspcc-dev/neofs-sdk-go/object/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
+	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 type testLocalStorage struct {
@@ -40,10 +44,13 @@ type testLocalStorage struct {
 
 type testHeaderSource struct {
 	header *object.Object
+	err    error
+	calls  []oid.Address
 }
 
-func (t *testHeaderSource) Head(_ context.Context, _ oid.Address) (*object.Object, error) {
-	return t.header, nil
+func (t *testHeaderSource) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
+	t.calls = append(t.calls, addr)
+	return t.header, t.err
 }
 
 func (s *testLocalStorage) Head(_ context.Context, addr oid.Address) (*object.Object, error) {
@@ -266,6 +273,170 @@ func TestV2Split(t *testing.T) {
 		// allow an object whose first obj does not have the restricted attribute
 		checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
 	})
+}
+
+func TestV2SplitMiddlePart(t *testing.T) {
+	cnr := cidtest.ID()
+
+	var parent object.Object
+	parent.SetContainerID(cnr)
+	parent.SetAttributes(object.NewAttribute("classified", "secret"))
+
+	var first object.Object
+	first.SetContainerID(cnr)
+	first.SetParent(&parent)
+	require.NoError(t, first.CalculateAndSetID())
+	firstID := first.GetID()
+
+	var middle object.Object
+	middle.SetContainerID(cnr)
+	middle.SetOwner(usertest.ID())
+	middle.SetFirstID(firstID)
+	middle.SetPreviousID(firstID)
+	require.NoError(t, middle.CalculateAndSetID())
+
+	var ecPart object.Object
+	ecPart.SetContainerID(cnr)
+	ecPart.SetParent(&middle)
+	require.NoError(t, ecPart.CalculateAndSetID())
+
+	newTable := func(op eacl.Operation, filter eacl.Filter) *eacl.Table {
+		table := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionDeny, op,
+			[]eacl.Target{eacl.NewTargetByRole(eacl.RoleOthers)}, filter)})
+		return &table
+	}
+	secretFilter := eacl.NewObjectPropertyFilter("classified", eacl.MatchStringEqual, "secret")
+
+	sources := func(t *testing.T, part object.Object) []struct {
+		name string
+		op   eacl.Operation
+		opts []Option
+	} {
+		addr := oid.NewAddress(cnr, part.GetID()).ProtoMessage()
+		getReq := &protoobject.GetRequest{Body: &protoobject.GetRequest_Body{Address: addr}}
+		headReq := &protoobject.HeadRequest{Body: &protoobject.HeadRequest_Body{Address: addr}}
+		storage := &testLocalStorage{t: t, expAddr: oid.NewAddress(cnr, part.GetID()), obj: &part}
+		hdr := part.ProtoMessage().Header
+		return []struct {
+			name string
+			op   eacl.Operation
+			opts []Option
+		}{
+			{"GET request", eacl.OperationGet, []Option{WithObjectStorage(storage), WithServiceRequest(getReq)}},
+			{"HEAD request", eacl.OperationHead, []Option{WithObjectStorage(storage), WithServiceRequest(headReq)}},
+			{"decoded header", eacl.OperationGet, []Option{WithObjectHeader(&part, getReq)}},
+			{"binary header", eacl.OperationGet, []Option{WithObjectHeaderBinary(marshalObjectHeader(hdr))}},
+			{"unordered binary header", eacl.OperationGet, []Option{WithObjectHeaderBinary(swapFirstFields(t, marshalObjectHeader(hdr)))}},
+			{"unordered binary split header", eacl.OperationGet, []Option{WithObjectHeaderBinary(swapSplitFields(t, marshalObjectHeader(hdr)))}},
+			{"GET response", eacl.OperationGet, []Option{WithServiceResponse(&protoobject.GetResponse{Body: &protoobject.GetResponse_Body{
+				ObjectPart: &protoobject.GetResponse_Body_Init_{Init: &protoobject.GetResponse_Body_Init{ObjectId: part.GetID().ProtoMessage(), Header: hdr}},
+			}}, getReq)}},
+			{"HEAD response", eacl.OperationHead, []Option{WithServiceResponse(&protoobject.HeadResponse{Body: &protoobject.HeadResponse_Body{
+				Head: &protoobject.HeadResponse_Body_Header{Header: &protoobject.HeaderWithSignature{Header: hdr}},
+			}}, headReq)}},
+		}
+	}
+
+	calculate := func(t *testing.T, hs *testHeaderSource, part object.Object, op eacl.Operation, filter eacl.Filter, opts []Option) (eacl.Action, bool, error) {
+		src, err := NewMessageHeaderSource(append([]Option{WithCID(cnr), WithOID(part.GetID()), WithHeaderSource(hs)}, opts...)...)
+		require.NoError(t, err)
+		unit := new(eacl.ValidationUnit).WithContainerID(&cnr).WithRole(eacl.RoleOthers).WithOperation(op).
+			WithEACLTable(newTable(op, filter)).WithHeaderSource(src)
+		return eacl.NewValidator().CalculateAction(unit)
+	}
+
+	for _, part := range []struct {
+		name string
+		obj  object.Object
+	}{{"middle part", middle}, {"EC part of middle part", ecPart}} {
+		t.Run(part.name, func(t *testing.T) {
+			for _, src := range sources(t, part.obj) {
+				t.Run(src.name, func(t *testing.T) {
+					t.Run("denied by parent attribute", func(t *testing.T) {
+						hs := &testHeaderSource{header: &first}
+						action, final, err := calculate(t, hs, part.obj, src.op, secretFilter, src.opts)
+						require.NoError(t, err)
+						require.True(t, final)
+						require.Equal(t, eacl.ActionDeny, action)
+						require.Equal(t, []oid.Address{oid.NewAddress(cnr, firstID)}, hs.calls)
+					})
+					t.Run("first part unavailable", func(t *testing.T) {
+						hs := &testHeaderSource{err: errors.New("any error")}
+						_, _, err := calculate(t, hs, part.obj, src.op, secretFilter, src.opts)
+						require.ErrorIs(t, err, hs.err)
+						require.NotErrorIs(t, err, eacl.ErrHeaderUnavailable)
+					})
+					t.Run("first part without parent", func(t *testing.T) {
+						hs := &testHeaderSource{header: &middle}
+						_, _, err := calculate(t, hs, part.obj, src.op, secretFilter, src.opts)
+						require.Error(t, err)
+						require.NotErrorIs(t, err, eacl.ErrHeaderUnavailable)
+					})
+					t.Run("address filter", func(t *testing.T) {
+						hs := new(testHeaderSource)
+						_, _, err := calculate(t, hs, part.obj, src.op, eacl.NewFilterObjectWithID(firstID), src.opts)
+						require.NoError(t, err)
+						require.Empty(t, hs.calls)
+					})
+				})
+			}
+		})
+	}
+
+	t.Run("V1 split", func(t *testing.T) {
+		v1 := middle
+		v1.SetFirstID(oid.ID{})
+		v1.SetSplitID(object.NewSplitID())
+		hs := new(testHeaderSource)
+		for _, src := range sources(t, v1) {
+			t.Run(src.name, func(t *testing.T) {
+				action, final, err := calculate(t, hs, v1, src.op, secretFilter, src.opts)
+				require.NoError(t, err)
+				require.True(t, final)
+				require.Equal(t, eacl.ActionAllow, action)
+				require.Empty(t, hs.calls)
+			})
+		}
+	})
+
+	t.Run("PUT", func(t *testing.T) {
+		req := &protoobject.PutRequest{Body: &protoobject.PutRequest_Body{
+			ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{Header: middle.ProtoMessage().Header}},
+		}}
+		opts := []Option{WithServiceRequest(req)}
+		t.Run("denied by parent attribute", func(t *testing.T) {
+			action, final, err := calculate(t, &testHeaderSource{header: &first}, middle, eacl.OperationPut, secretFilter, opts)
+			require.NoError(t, err)
+			require.True(t, final)
+			require.Equal(t, eacl.ActionDeny, action)
+		})
+		t.Run("first part without parent", func(t *testing.T) {
+			action, final, err := calculate(t, &testHeaderSource{header: &middle}, middle, eacl.OperationPut, secretFilter, opts)
+			require.NoError(t, err)
+			require.True(t, final)
+			require.Equal(t, eacl.ActionAllow, action)
+		})
+		t.Run("first part unavailable", func(t *testing.T) {
+			hs := &testHeaderSource{err: errors.New("any error")}
+			_, _, err := calculate(t, hs, middle, eacl.OperationPut, secretFilter, opts)
+			require.ErrorIs(t, err, hs.err)
+		})
+	})
+}
+
+func swapFirstFields(t *testing.T, msg []byte) []byte {
+	_, _, n1 := protowire.ConsumeField(msg)
+	require.Positive(t, n1)
+	_, _, n2 := protowire.ConsumeField(msg[n1:])
+	require.Positive(t, n2)
+	return slices.Concat(msg[n1:n1+n2], msg[:n1], msg[n1+n2:])
+}
+
+func swapSplitFields(t *testing.T, hdr []byte) []byte {
+	f, err := iprotobuf.GetLENFieldBounds(hdr, protoobject.FieldHeaderSplit)
+	require.NoError(t, err)
+	require.False(t, f.IsMissing())
+	return slices.Concat(hdr[:f.ValueFrom], swapFirstFields(t, hdr[f.ValueFrom:f.To]), hdr[f.To:])
 }
 
 func marshalObjectHeader(hdr *protoobject.Header) []byte {

@@ -60,6 +60,10 @@ type headerSource struct {
 	addressOnly bool
 	loadErr     error
 	scratch     []byte
+
+	splitParent       *object.Object
+	splitParentLoaded bool
+	splitParentErr    error
 }
 
 func defaultCfg() *cfg {
@@ -103,19 +107,33 @@ func (h *headerSource) HeaderValue(typ eacl.FilterHeaderType, key string) ([]byt
 			value, found = msg.req.headerValue(key)
 		}
 	case eacl.HeaderFromObject:
+		var first oid.ID
 		if msg, ok := h.cfg.msg.(binaryHeader); ok {
-			value, err := lookupBinaryObjectHeader(msg, h.cfg.cnr, h.cfg.obj, key, !h.binaryValid)
+			value, err := lookupBinaryObjectHeader(msg, h.cfg.cnr, h.cfg.obj, key, !h.binaryValid, &first)
 			h.binaryValid = err == nil
-			return value, err
+			if err != nil || value != nil || isAddressKey(key) {
+				return value, err
+			}
+		} else {
+			if !h.loaded {
+				h.loadErr = h.cfg.readObjectHeader(h)
+				h.loaded = true
+			}
+			if h.loadErr != nil {
+				return nil, h.loadErr
+			}
+			value, found = lookupObjectHeader(h.obj, h.cfg.cnr, h.cfg.obj, h.addressOnly, key)
+			if !found && !isAddressKey(key) && !h.cfg.isPut() {
+				first = splitFirstID(h.obj)
+			}
 		}
-		if !h.loaded {
-			h.loadErr = h.cfg.readObjectHeader(h)
-			h.loaded = true
+		if !first.IsZero() {
+			parent, err := h.readSplitParent(first)
+			if err != nil {
+				return nil, err
+			}
+			value, found = lookupObjectHeader(parent, h.cfg.cnr, h.cfg.obj, false, key)
 		}
-		if h.loadErr != nil {
-			return nil, h.loadErr
-		}
-		value, found = lookupObjectHeader(h.obj, h.cfg.cnr, h.cfg.obj, h.addressOnly, key)
 	}
 	if !found {
 		return nil, nil
@@ -197,16 +215,10 @@ func (h *cfg) readObjectHeader(dst *headerSource) error {
 							return fmt.Errorf("converting first object ID: %w", err)
 						}
 
-						var addr oid.Address
-						addr.SetObject(firstID)
-						addr.SetContainer(h.cnr)
-
-						firstObject, err := h.headerSource.Head(h.ctx, addr)
+						dst.obj, err = h.firstObjectParent(firstID)
 						if err != nil {
-							return fmt.Errorf("fetching first object header: %w", err)
+							return err
 						}
-
-						dst.obj = firstObject.Parent()
 					}
 
 					// first object not defined, unexpected, do not attach any header
@@ -287,4 +299,52 @@ func (h *cfg) localObject() (*object.Object, error) {
 		}
 	}
 	return nil, eacl.ErrHeaderUnavailable
+}
+
+func (h *cfg) isPut() bool {
+	m, ok := h.msg.(requestXHeaderSource)
+	if !ok {
+		return false
+	}
+	_, ok = m.req.(*protoobject.PutRequest)
+	return ok
+}
+
+// firstObjectParent returns the parent header carried by the first part of a
+// split object, nil if the first part has none.
+func (h *cfg) firstObjectParent(first oid.ID) (*object.Object, error) {
+	firstObject, err := h.headerSource.Head(h.ctx, oid.NewAddress(h.cnr, first))
+	if err != nil {
+		return nil, fmt.Errorf("fetching first object header: %w", err)
+	}
+	return firstObject.Parent(), nil
+}
+
+// readSplitParent returns the parent of a split object referenced by its first
+// part. Unlike [eacl.ErrHeaderUnavailable], any returned error denies access.
+func (h *headerSource) readSplitParent(first oid.ID) (*object.Object, error) {
+	if !h.splitParentLoaded {
+		h.splitParent, h.splitParentErr = h.cfg.firstObjectParent(first)
+		if h.splitParentErr == nil && h.splitParent == nil {
+			h.splitParentErr = fmt.Errorf("first object %s has no parent header", first)
+		}
+		h.splitParentLoaded = true
+	}
+	return h.splitParent, h.splitParentErr
+}
+
+func isAddressKey(key string) bool {
+	return key == eacl.FilterObjectContainerID || key == eacl.FilterObjectID
+}
+
+// splitFirstID returns the first part ID of the deepest header in the chain if
+// it is a split part that does not carry its parent header.
+func splitFirstID(obj *object.Object) oid.ID {
+	if obj == nil {
+		return oid.ID{}
+	}
+	for par := obj.Parent(); par != nil; par = obj.Parent() {
+		obj = par
+	}
+	return obj.GetFirstID()
 }
