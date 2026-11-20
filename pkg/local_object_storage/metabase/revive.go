@@ -117,6 +117,15 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, diff CountersDif
 			diff.add(tombDiff)
 			res.setStatusGraveyard(tombAddress.EncodeToString())
 			res.tombstoneAddr = tombAddress
+			// The object stays deleted for as long as another tombstone
+			// references it, so the garbage mark and the counters it takes
+			// away must be kept until the last tombstone is removed.
+			if another, _ := associatedWithTypedObject(0, 0, metaCursor, addr.Object(), object.TypeTombstone); another {
+				if err := applyDiff(metaBucket, diff); err != nil {
+					return fmt.Errorf("failed to update counters: %w", err)
+				}
+				return nil
+			}
 		}
 		diff.GC--
 		diff.add(reviveCountersDiff(metaCursor, addr.Object()))
