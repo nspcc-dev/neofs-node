@@ -86,6 +86,7 @@ func buildSplitScene(t testing.TB, ver, n int, delay time.Duration) *splitScene 
 
 	svc := &Service{cfg: new(cfg)}
 	svc.log = zap.NewNop()
+	svc.maxObjectSizeSrc = testMaxObjectSize(1 << 20)
 	svc.localStorage = newTestStorage()
 	svc.neoFSNet = &testNeoFS{vectors: vectors}
 	svc.clientCache = &testClientCache{
@@ -200,6 +201,7 @@ func buildSplitLink(ver int, linkAddr oid.Address, parent *object.Object, childr
 		var link object.Link
 		link.SetObjects(linkChildren)
 		linkObj.WriteLink(link)
+		linkObj.SetPayloadSize(uint64(len(linkObj.Payload())))
 	}
 	linkObj.SetParentID(parent.GetID())
 	linkObj.SetParent(parent)
