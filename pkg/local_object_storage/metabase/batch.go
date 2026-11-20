@@ -58,13 +58,15 @@ type writeController struct {
 type putBatchStats struct {
 	batches  uint64
 	objects  uint64
+	bytes    uint64
 	total    time.Duration
 	min, max time.Duration
 }
 
 type putCall struct {
-	fn  func(*bbolt.Tx) error
-	err chan<- error
+	fn   func(*bbolt.Tx) error
+	size int
+	err  chan<- error
 }
 
 type putBatch struct {
@@ -149,11 +151,16 @@ func (db *DB) tickWriteController() {
 	db.log.Info("metabase put batch stats",
 		zap.Uint64("batches", s.batches),
 		zap.Uint64("objects", s.objects),
-		zap.Duration("avg", s.total/time.Duration(s.batches)),
-		zap.Duration("min", s.min),
-		zap.Duration("max", s.max),
+		zap.Uint64("bytes", s.bytes),
+		zap.Float64("avg_ms", milliseconds(s.total/time.Duration(s.batches))),
+		zap.Float64("min_ms", milliseconds(s.min)),
+		zap.Float64("max_ms", milliseconds(s.max)),
 		zap.Float64("writes_per_sec", c.emaWritesPerSec),
-		zap.Duration("tx_delay", d))
+		zap.Float64("tx_delay_ms", milliseconds(d)))
+}
+
+func milliseconds(d time.Duration) float64 {
+	return float64(d) / float64(time.Millisecond)
 }
 
 // putBatch calls fn as a part of a write transaction shared with concurrent
@@ -177,7 +184,7 @@ func (db *DB) putBatch(size int, fn func(*bbolt.Tx) error) error {
 		c.pending.timer = time.AfterFunc(time.Duration(c.txDelay.Load()), c.pending.trigger)
 	}
 	b := c.pending
-	b.calls = append(b.calls, putCall{fn: fn, err: errCh})
+	b.calls = append(b.calls, putCall{fn: fn, size: size, err: errCh})
 	b.size += size
 	if len(b.calls) >= db.boltBatchSize || b.size >= maxPutBatchBytes {
 		c.pending = nil
@@ -228,6 +235,7 @@ func (b *putBatch) run() {
 		}
 		call := b.calls[failIdx]
 		b.calls[failIdx], b.calls = b.calls[len(b.calls)-1], b.calls[:len(b.calls)-1]
+		b.size -= call.size
 		call.err <- errPutTrySolo
 	}
 	if err == nil {
@@ -239,6 +247,7 @@ func (b *putBatch) run() {
 		c.stats.max = max(c.stats.max, dur)
 		c.stats.batches++
 		c.stats.objects += uint64(len(b.calls))
+		c.stats.bytes += uint64(b.size)
 		c.stats.total += dur
 		c.mtx.Unlock()
 	}
