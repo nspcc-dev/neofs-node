@@ -246,9 +246,11 @@ func initObjectService(c *cfg) {
 	c.workers = append(c.workers, c.policer, c.replicator)
 
 	nnsResolver := nnscore.NewResolver(c.cli)
+	maxObjectSizeSrc := newCachedMaxObjectSizeSource(c.MaxObjectSize)
 
 	sGet := getsvc.New(c,
 		getsvc.WithLogger(c.log),
+		getsvc.WithMaxObjectSizeSource(maxObjectSizeSrc),
 		getsvc.WithLocalStorageEngine(ls),
 		getsvc.WithClientConstructor(coreConstructor),
 		getsvc.WithKeyStorage(keyStorage),
@@ -273,7 +275,7 @@ func initObjectService(c *cfg) {
 		putsvc.WithKeyStorage(keyStorage),
 		putsvc.WithClientConstructor(putConstructor),
 		putsvc.WithContainerClient(c.cCli),
-		putsvc.WithMaxSizeSource(newCachedMaxObjectSizeSource(c.MaxObjectSize)),
+		putsvc.WithMaxSizeSource(maxObjectSizeSrc),
 		putsvc.WithObjectStorage(ls),
 		putsvc.WithContainerSource(c.cnrSrc),
 		putsvc.WithNetworkState(c.cfgNetmap.state),

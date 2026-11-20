@@ -21,6 +21,7 @@ Changelog for NeoFS Node
 - Storage node could return a wrong EC part for rules with 11 or more parts (#4325)
 - eACL attached to container creation was accepted without verifying it is signed by the container owner (#4298)
 - Middle parts of a split object bypassed eACL rules on the parent's attributes (#4343)
+- SN could crash when an EC part response declared an oversized linker payload (#4355)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
