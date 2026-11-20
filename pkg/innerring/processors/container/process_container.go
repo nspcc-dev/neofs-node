@@ -83,7 +83,7 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 			}
 		}
 
-		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr, req.OriginalRequest == nil)
+		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr)
 		if err != nil {
 			cp.log.Error("additional eACL with container creation check failed",
 				zap.Stringer("cid", id), zap.Error(err))

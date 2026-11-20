@@ -19,6 +19,7 @@ Changelog for NeoFS Node
 - User attributes with `$Object:` keys could override system object properties in the metabase, affecting SEARCH results and object status (#4339)
 - Missing delegation chain validation for v2 session tokens embedded in objects (#4347)
 - Storage node could return a wrong EC part for rules with 11 or more parts (#4325)
+- eACL attached to container creation was accepted without verifying it is signed by the container owner (#4298)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
