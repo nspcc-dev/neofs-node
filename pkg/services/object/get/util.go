@@ -56,7 +56,8 @@ func (x sizeSplitinkerError) Error() string {
 type SimpleObjectWriter struct {
 	obj *object.Object
 
-	pld []byte
+	pld          []byte
+	payloadLimit uint64 // zero means no limit
 }
 
 type clientCacheWrapper struct {
@@ -117,14 +118,22 @@ func NewSimpleObjectWriter() *SimpleObjectWriter {
 }
 
 func (s *SimpleObjectWriter) WriteHeader(obj *object.Object) error {
+	var pld []byte
+	if s.payloadLimit != 0 {
+		if obj.PayloadSize() > s.payloadLimit {
+			return fmt.Errorf("declared payload size %d exceeds limit %d", obj.PayloadSize(), s.payloadLimit)
+		}
+		pld = make([]byte, 0, obj.PayloadSize())
+	}
 	s.obj = obj
-
-	s.pld = make([]byte, 0, obj.PayloadSize())
-
+	s.pld = pld
 	return nil
 }
 
 func (s *SimpleObjectWriter) WriteChunk(p []byte) error {
+	if s.payloadLimit != 0 && len(p) > cap(s.pld)-len(s.pld) {
+		return fmt.Errorf("payload exceeds declared size %d", cap(s.pld))
+	}
 	s.pld = append(s.pld, p...)
 	return nil
 }

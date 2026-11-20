@@ -632,15 +632,19 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule
 	return *parentHdr, buf, nil
 }
 
-func (s *Service) readSizeSplitLinkerPayload(size uint64, r io.Reader) ([]byte, error) {
-	var limit uint64
-	if s.maxObjectSizeSrc != nil {
-		limit = s.maxObjectSizeSrc.MaxObjectSize()
+func (s *Service) maxLinkerSize() uint64 {
+	if s.maxObjectSizeSrc == nil {
+		return 0
 	}
+	return min(s.maxObjectSizeSrc.MaxObjectSize(), math.MaxInt)
+}
+
+func (s *Service) readSizeSplitLinkerPayload(size uint64, r io.Reader) ([]byte, error) {
+	limit := s.maxLinkerSize()
 	if limit == 0 {
 		return nil, errors.New("maximum object size is unavailable")
 	}
-	if limit = min(limit, math.MaxInt); size > limit {
+	if size > limit {
 		return nil, fmt.Errorf("linker payload size %d exceeds limit %d", size, limit)
 	}
 
