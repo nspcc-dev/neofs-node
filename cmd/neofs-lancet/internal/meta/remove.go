@@ -30,6 +30,9 @@ func init() {
 }
 
 func removeFunc(cmd *cobra.Command, _ []string) error {
+	if len(vAddresses) == 0 {
+		return fmt.Errorf("provide at least one address via --%s flag", addressesFlagName)
+	}
 	addrs := make([]oid.Address, 0, len(vAddresses))
 	for _, addrStr := range vAddresses {
 		var addr oid.Address

@@ -34,6 +34,10 @@ var objectLockCmd = &cobra.Command{
 
 		oidsRaw, _ := cmd.Flags().GetStringSlice(commonflags.OIDFlag)
 
+		if len(oidsRaw) == 0 {
+			return fmt.Errorf("provide at least one object via %s flag", commonflags.OIDFlag)
+		}
+
 		lockList := make([]oid.ID, len(oidsRaw))
 
 		for i := range oidsRaw {
