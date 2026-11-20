@@ -78,8 +78,15 @@ func (exec *execCtx) processV2Last(lastID oid.ID) {
 }
 
 func (exec *execCtx) processV2Link(linkID oid.ID) bool {
+	limit := exec.svc.maxLinkerSize()
+	if limit == 0 {
+		exec.log.Debug("maximum object size is unavailable, skipping linker")
+		return false
+	}
+
 	// need full payload of link object to parse link structure
 	w := NewSimpleObjectWriter()
+	w.payloadLimit = limit
 
 	p := exec.prm
 	p.common = p.common.WithLocalOnly(false)
@@ -96,6 +103,10 @@ func (exec *execCtx) processV2Link(linkID oid.ID) bool {
 	}
 
 	linkObj := w.Object()
+	if uint64(len(linkObj.Payload())) != linkObj.PayloadSize() {
+		exec.log.Debug("incomplete link payload", zap.Stringer("link ID", linkID))
+		return false
+	}
 	if !exec.isChild(linkObj) {
 		exec.status = statusUndefined
 		exec.err = errWrongChildHeader

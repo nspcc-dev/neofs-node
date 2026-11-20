@@ -24,6 +24,8 @@ import (
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestService_Get_EC_Part(t *testing.T) {
@@ -595,7 +597,7 @@ func TestService_Get_EC(t *testing.T) {
 // them. Everything is served locally by one node, which keeps the fetch
 // deterministic; the linker paths do not depend on part counts.
 //
-// Only the linker's address is placed in the netmap, since both tests below
+// Only the linker's address is placed in the netmap, since the tests below
 // request the linker itself rather than the object it links.
 type ecLinkerScene struct {
 	cnr        cid.ID
@@ -649,7 +651,7 @@ func newECLinkerScene(t testing.TB) *ecLinkerScene {
 			linkerAddr: {nodeSets: nodeLists, ecRules: []iec.Rule{rule}},
 		},
 		localPubKey: nodeLists[0][0].PublicKey(),
-	})
+	}, WithMaxObjectSizeSource(testMaxObjectSize(linker.PayloadSize())))
 	svc.keyStore = &mockKeyStorage{privKey: neofscryptotest.ECDSAPrivateKey()}
 
 	local := &mockLocalObjects{getECPart: make(map[getECPartKey]getECPartValue)}
@@ -711,6 +713,82 @@ func TestService_Get_EC_RangeByLinkerIDIsNotServedFromParent(t *testing.T) {
 	require.ErrorIs(t, err, errParentHeaderIDMismatch)
 	require.NotEqual(t, sc.childPlds[0], w.buf.Bytes())
 	require.Zero(t, w.buf.Len())
+}
+
+func TestService_Get_EC_LinkerAbovePayloadLimit(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		ranged bool
+	}{
+		{name: "full"},
+		{name: "ranged", ranged: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sc := newECLinkerScene(t)
+			sc.svc.maxObjectSizeSrc = testMaxObjectSize(sc.linker.PayloadSize() - 1)
+
+			local := sc.svc.localObjects.(*mockLocalObjects)
+			key := getECPartKey{cnr: sc.cnr, parent: sc.linkerAddr.Object()}
+			part := local.getECPart[key]
+			body := bytes.NewReader(sc.linker.Payload())
+			part.rdr = io.NopCloser(body)
+			local.getECPart[key] = part
+
+			var w mockObjectWriter
+			var prm Prm
+			prm.WithAddress(sc.linkerAddr)
+			prm.SetCommonParameters(newCommonParameters(false))
+			prm.SetObjectWriter(&w)
+			if tc.ranged {
+				prm.MarkPayloadOnly()
+				rng := object.NewRange()
+				rng.SetLength(1)
+				prm.SetRange(rng)
+			}
+
+			require.Error(t, sc.svc.Get(context.Background(), prm))
+			require.Equal(t, len(sc.linker.Payload()), body.Len())
+			require.Zero(t, w.buf.Len())
+		})
+	}
+}
+
+type testMaxObjectSize uint64
+
+func (s testMaxObjectSize) MaxObjectSize() uint64 { return uint64(s) }
+
+func TestReadSizeSplitLinkerPayload(t *testing.T) {
+	const limit testMaxObjectSize = 4
+	svc := New(unimplementedNeoFSNet{}, WithMaxObjectSizeSource(limit))
+
+	t.Run("at limit", func(t *testing.T) {
+		r := bytes.NewBufferString("linkextra")
+		payload, err := svc.readSizeSplitLinkerPayload(uint64(limit), r)
+		require.NoError(t, err)
+		require.Equal(t, []byte("link"), payload)
+		require.Equal(t, "extra", r.String())
+	})
+	t.Run("above limit", func(t *testing.T) {
+		r := bytes.NewBufferString("link!")
+		_, err := svc.readSizeSplitLinkerPayload(uint64(limit)+1, r)
+		require.ErrorContains(t, err, "exceeds limit")
+		require.Equal(t, "link!", r.String())
+	})
+	t.Run("zero limit", func(t *testing.T) {
+		svc := New(unimplementedNeoFSNet{}, WithMaxObjectSizeSource(testMaxObjectSize(0)))
+		r := bytes.NewBufferString("link")
+		_, err := svc.readSizeSplitLinkerPayload(uint64(limit), r)
+		require.ErrorContains(t, err, "maximum object size is unavailable")
+		require.Equal(t, "link", r.String())
+	})
+	t.Run("short read", func(t *testing.T) {
+		_, err := svc.readSizeSplitLinkerPayload(uint64(limit), bytes.NewBufferString("li"))
+		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	})
+	t.Run("canceled", func(t *testing.T) {
+		_, err := svc.readSizeSplitLinkerPayload(uint64(limit), iotest.ErrReader(status.Error(codes.Canceled, "canceled")))
+		require.ErrorIs(t, err, context.Canceled)
+	})
 }
 
 func parameterizePartInfo(t testing.TB, p *Prm, pi iec.PartInfo) {
