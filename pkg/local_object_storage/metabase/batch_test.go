@@ -23,11 +23,11 @@ func TestTxDelay(t *testing.T) {
 	}{
 		{ema: -1, exp: minTxDelay},
 		{ema: 0, exp: minTxDelay},
-		{ema: 1000, exp: minTxDelay + 1900*time.Nanosecond},
-		{ema: 5000, exp: minTxDelay + 1187500*time.Nanosecond},
-		{ema: 9000, exp: minTxDelay + 12465900*time.Nanosecond},
-		{ema: 10000, exp: maxTxDelay},
-		{ema: 20000, exp: maxTxDelay},
+		{ema: maxWritesPerSec / 10, exp: minTxDelay + 1900*time.Nanosecond},
+		{ema: maxWritesPerSec / 2, exp: minTxDelay + 1187500*time.Nanosecond},
+		{ema: maxWritesPerSec * 9 / 10, exp: minTxDelay + 12465900*time.Nanosecond},
+		{ema: maxWritesPerSec, exp: maxTxDelay},
+		{ema: 2 * maxWritesPerSec, exp: maxTxDelay},
 	} {
 		require.Equal(t, tc.exp, txDelay(tc.ema), tc.ema)
 	}
@@ -52,7 +52,7 @@ func TestDB_Put_WriteController(t *testing.T) {
 		setPutTxDelay(db, minTxDelay)
 
 		for range 20 {
-			db.putCtrl.writes.Store(20000)
+			db.putCtrl.writes.Store(2 * maxWritesPerSec)
 			db.tickWriteController()
 		}
 		require.EqualValues(t, maxTxDelay, db.putCtrl.txDelay.Load())
@@ -92,6 +92,7 @@ func TestDB_Put_WriteController(t *testing.T) {
 		s := putStats(db)
 		require.EqualValues(t, n/batchSize, s.batches)
 		require.EqualValues(t, n, s.objects)
+		require.EqualValues(t, n*objs[0].HeaderLen(), s.bytes)
 	})
 
 	t.Run("puts join pending batch during commit", func(t *testing.T) {
@@ -165,6 +166,7 @@ func TestDB_Put_WriteController(t *testing.T) {
 		s := putStats(db)
 		require.EqualValues(t, 1, s.batches)
 		require.EqualValues(t, n-1, s.objects)
+		require.EqualValues(t, (n-1)*objs[1].HeaderLen(), s.bytes)
 	})
 }
 
