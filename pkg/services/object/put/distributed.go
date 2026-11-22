@@ -423,14 +423,18 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 					ruleOrder = append(ruleOrder, len(repRules)+i)
 				}
 			}
-			slices.SortFunc(ruleOrder, func(a, b int) int {
-				if localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[a]) {
+			slices.SortStableFunc(ruleOrder, func(a, b int) int {
+				var (
+					localA = localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[a])
+					localB = localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[b])
+				)
+				if localA == localB {
+					return 0
+				}
+				if localA {
 					return -1
 				}
-				if localNodeInSet(t.placementIterator.neoFSNet, objNodeLists[b]) {
-					return 1
-				}
-				return 0
+				return 1
 			})
 			ruleNum = len(ruleOrder)
 		}
