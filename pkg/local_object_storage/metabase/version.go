@@ -75,7 +75,7 @@ func (db *DB) checkVersion() error {
 	switch {
 	case !knownVersion:
 		// new database, write version
-		return db.boltDB.Update(func(tx *bbolt.Tx) error { return updateVersion(tx, currentMetaVersion) })
+		return db.writeOutsideController("checkVersion", 0, db.boltDB.Update, func(tx *bbolt.Tx) error { return updateVersion(tx, currentMetaVersion) })
 	case stored == currentMetaVersion:
 		return nil
 	case stored > currentMetaVersion:
@@ -130,7 +130,7 @@ func updateContainersInterruptable(db *DB, validPrefixes []byte, migrationFunc f
 			return context.Cause(db.initCtx)
 		default:
 		}
-		if err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+		if err := db.writeOutsideController("updateContainersInterruptable", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 			var err error
 			fromBkt, afterObj, err = iterateContainerBuckets(db.log, db.cfg.containers, tx, fromBkt, afterObj,
 				validPrefixes, migrationFunc)
@@ -197,7 +197,7 @@ func migrateFrom10Version(db *DB) error {
 		return fmt.Errorf("rewrite %q attribute values in metadata: %w", object.AttributeAssociatedObject, err)
 	}
 
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("migrateFrom10Version", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		err := syncCounter(tx, true)
 		if err != nil {
 			return fmt.Errorf("resync object counters: %w", err)
@@ -352,7 +352,7 @@ func migrateFrom11Version(db *DB) error {
 	if err != nil {
 		return fmt.Errorf("drop "+object.AttributeNonce+" indexes: %w", err)
 	}
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("migrateFrom11Version", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		return updateVersion(tx, 12)
 	})
 }
@@ -399,7 +399,7 @@ func dropNonceIndexes(_ *zap.Logger, _ *bbolt.Tx, b *bbolt.Bucket, _ cid.ID, _ [
 // containers garbage marks of objects missing in the metabase were not
 // counted, and payload of an already marked object could be subtracted twice.
 func migrateFrom12Version(db *DB) error {
-	return db.boltDB.Update(func(tx *bbolt.Tx) error {
+	return db.writeOutsideController("migrateFrom12Version", 0, db.boltDB.Update, func(tx *bbolt.Tx) error {
 		err := syncCounter(tx, true)
 		if err != nil {
 			return fmt.Errorf("resync object counters: %w", err)

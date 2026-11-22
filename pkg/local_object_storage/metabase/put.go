@@ -42,7 +42,7 @@ func (db *DB) PutCounted(obj *object.Object) (CountersDiff, error) {
 	currEpoch := db.epochState.CurrentEpoch()
 	currTime := db.now().Unix()
 
-	err = db.boltDB.Batch(func(tx *bbolt.Tx) error {
+	err = db.putBatch(obj.HeaderLen(), func(tx *bbolt.Tx) error {
 		diff, err = db.put(tx, obj, 0, currEpoch, currTime)
 		return err
 	})
@@ -85,7 +85,7 @@ func (db *DB) PutBatch(objs []*object.Object) error {
 	currTime := db.now().Unix()
 
 	var successIndices []int
-	err := db.boltDB.Update(func(tx *bbolt.Tx) error {
+	err := db.writeOutsideController("PutBatch", len(objs), db.boltDB.Update, func(tx *bbolt.Tx) error {
 		for i, obj := range objs {
 			if _, err := db.put(tx, obj, 0, currEpoch, currTime); err != nil {
 				if errors.Is(err, apistatus.ErrObjectAlreadyRemoved) || errors.Is(err, ErrObjectIsExpired) ||

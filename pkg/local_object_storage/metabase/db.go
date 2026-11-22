@@ -35,6 +35,8 @@ type DB struct {
 	mode    mode.Mode
 
 	boltDB *bbolt.DB
+
+	putCtrl writeController
 }
 
 // Option is an option of DB constructor.
@@ -131,7 +133,8 @@ func WithMaxBatchSize(s int) Option {
 }
 
 // WithMaxBatchDelay returns option to specify maximum time to wait before
-// the batch of concurrent transactions is processed.
+// the batch of concurrent transactions is processed. It does not apply to
+// object PUT, whose delay follows the write load.
 // This option is missing from `bbolt.Options` but is set right after DB is open.
 func WithMaxBatchDelay(d time.Duration) Option {
 	return func(c *cfg) {
