@@ -22,6 +22,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 )
 
 // FormatValidator represents an object format validator.
@@ -143,7 +144,8 @@ func NewFormatValidator(fsChain FSChain, netmapContract NetmapContract, containe
 //
 // Does not validate payload checksum and content.
 // If unprepared is true, only fields set by user are validated.
-// allowAllVersions defines whether the object version is checked.
+// If allowAllVersions is true, skips the minimum version check for new objects.
+// Version-specific format rules still apply.
 //
 // Returns nil error if the object has valid structure.
 func (v *FormatValidator) Validate(ctx context.Context, obj *object.Object, unprepared, allowAllVersions bool) error {
@@ -152,13 +154,21 @@ func (v *FormatValidator) Validate(ctx context.Context, obj *object.Object, unpr
 
 const maxObjectNestingLevel = 2
 
+var firstAPIVersionWithoutSplitV1 = version.New(2, 29)
+
 func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unprepared, allowAllVersions bool, nestingLevel int) error {
 	if obj == nil {
 		return errNilObject
 	}
 
-	if !allowAllVersions && !versioncore.ValidNewObject(obj.Version()) {
-		return fmt.Errorf("invalid version for a non-replicated object: %s", obj.Version())
+	ver := obj.Version()
+	if !allowAllVersions && !versioncore.ValidNewObject(ver) {
+		return fmt.Errorf("invalid version for a non-replicated object: %s", ver)
+	}
+
+	splitID := obj.SplitID()
+	if ver != nil && ver.Compare(firstAPIVersionWithoutSplitV1) >= 0 && (splitID != nil || len(obj.Children()) != 0) {
+		return errors.New("v1 split fields are forbidden since API version 2.29")
 	}
 
 	var expirationRequired bool
@@ -219,7 +229,6 @@ func (v *FormatValidator) validate(ctx context.Context, obj *object.Object, unpr
 	}
 
 	_, firstSet := obj.FirstID()
-	splitID := obj.SplitID()
 	par := obj.Parent()
 
 	if !isEC && obj.HasParent() {
