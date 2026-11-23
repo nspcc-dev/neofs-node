@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
@@ -201,4 +202,58 @@ func TestSearchOnRemoteAddress_AttributelessItem(t *testing.T) {
 		require.False(t, more)
 		require.Len(t, res, 1)
 	})
+}
+
+type firstPartTestClient struct {
+	clientcore.MultiAddressClient
+	conn     *grpc.ClientConn
+	needSign bool
+}
+
+func (c firstPartTestClient) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
+	return f(ctx, c.conn)
+}
+
+func (firstPartTestClient) APIVersion() *refs.Version { return nil }
+
+func (c firstPartTestClient) IsMutuallyAuthenticated() bool { return !c.needSign }
+
+func TestFirstPartRequestCacheOnCancellation(t *testing.T) {
+	conn, err := grpc.NewClient("passthrough:///unused",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStreamInterceptor(func(ctx context.Context, _ *grpc.StreamDesc, _ *grpc.ClientConn, _ string, _ grpc.Streamer, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+			return nil, ctx.Err()
+		}),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	for _, tc := range []struct {
+		name     string
+		needSign bool
+	}{
+		{name: "signed", needSign: true},
+		{name: "unsigned", needSign: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			signed := defaultGRPCBufferPool.Get(128)
+			unsigned := defaultGRPCBufferPool.Get(128)
+			x := getECTransport{getPartRequest: signed, getPartRequestUnsigned: unsigned}
+
+			preserved, released := &x.getPartRequestUnsigned, &x.getPartRequest
+			if !tc.needSign {
+				preserved, released = released, preserved
+			}
+			wantPreserved := *preserved
+			defer defaultGRPCBufferPool.Put(wantPreserved)
+
+			_, _, _, _, err := x.CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx, firstPartTestClient{conn: conn, needSign: tc.needSign}, 0)
+			require.ErrorIs(t, err, context.Canceled)
+			require.Nil(t, *released)
+			require.Same(t, wantPreserved, *preserved)
+		})
+	}
 }
