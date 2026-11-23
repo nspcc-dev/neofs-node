@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
+- Reject split v1 fields in object headers with API version 2.29 or later (#4361)
 
 ### Removed
 

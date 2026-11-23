@@ -316,6 +316,53 @@ func TestFormatValidator_Validate(t *testing.T) {
 		require.NoError(t, v.Validate(context.Background(), obj, false, true))
 	})
 
+	t.Run("legacy split fields", func(t *testing.T) {
+		ctx := context.Background()
+		signer := usertest.User()
+		for _, field := range []struct {
+			name string
+			set  func(*object.Object)
+		}{
+			{"split_id", func(obj *object.Object) { obj.SetSplitID(object.NewSplitID()) }},
+			{"children", func(obj *object.Object) { obj.SetChildren(oidtest.ID()) }},
+		} {
+			t.Run(field.name, func(t *testing.T) {
+				obj := blankValidObject(signer)
+				registerContainer(obj.GetContainerID())
+				field.set(obj)
+				for _, ver := range []version.Version{version.New(2, 28), version.New(2, 29), version.New(2, 30)} {
+					t.Run(ver.String(), func(t *testing.T) {
+						obj.SetVersion(&ver)
+						require.NoError(t, obj.SetIDWithSignature(signer))
+						for _, allowAllVersions := range []bool{false, true} {
+							err := v.Validate(ctx, obj, false, allowAllVersions)
+							if ver.Minor() < 29 {
+								require.NoError(t, err)
+							} else {
+								require.ErrorContains(t, err, "v1 split fields are forbidden since API version 2.29")
+							}
+						}
+					})
+				}
+			})
+		}
+
+		t.Run("parent header", func(t *testing.T) {
+			parent := blankValidObject(signer)
+			ver := version.New(2, 29)
+			parent.SetVersion(&ver)
+			parent.SetChildren(oidtest.ID())
+			require.NoError(t, parent.SetIDWithSignature(signer))
+			registerContainer(parent.GetContainerID())
+
+			part := object.New(parent.GetContainerID(), signer.UserID())
+			part.SetParent(parent)
+			part.SetParentID(parent.GetID())
+			require.NoError(t, part.SetIDWithSignature(signer))
+			require.ErrorContains(t, v.Validate(ctx, part, false, false), "v1 split fields are forbidden since API version 2.29")
+		})
+	})
+
 	t.Run("expiration", func(t *testing.T) {
 		t.Run("split parts with expired parent", func(t *testing.T) {
 			for _, split := range []string{"V1", "V2"} {
@@ -343,6 +390,8 @@ func TestFormatValidator_Validate(t *testing.T) {
 								part := object.New(parent.GetContainerID(), signer.UserID())
 								part.SetPreviousID(oidtest.ID())
 								if split == "V1" {
+									ver := version.New(2, 28)
+									part.SetVersion(&ver)
 									part.SetSplitID(object.NewSplitID())
 								} else {
 									part.SetFirstID(oidtest.ID())
@@ -659,7 +708,10 @@ func TestLinkObjectSplitV2(t *testing.T) {
 	obj.SetFirstID(oidtest.ID())
 
 	t.Run("V1 split, first is set", func(t *testing.T) {
-		require.ErrorContains(t, v.Validate(context.Background(), obj, true, true), "first object ID is set")
+		legacy := *obj
+		ver := version.New(2, 28)
+		legacy.SetVersion(&ver)
+		require.ErrorContains(t, v.Validate(context.Background(), &legacy, true, true), "first object ID is set")
 	})
 
 	t.Run("V2 split", func(t *testing.T) {
