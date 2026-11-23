@@ -596,13 +596,8 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule
 	}
 
 	if typ == object.TypeLink {
-		buf := make([]byte, partHdr.PayloadSize())
-		if _, err := io.ReadFull(rc, buf); err != nil {
-			if errors.Is(err, io.EOF) { // empty payload is caught above
-				err = io.ErrUnexpectedEOF
-			} else {
-				err = igrpc.ConvertContextStatus(err)
-			}
+		buf, err := s.readSizeSplitLinkerPayload(partHdr.PayloadSize(), rc)
+		if err != nil {
 			return object.Object{}, nil, fmt.Errorf("read full payload: %w", err)
 		}
 
@@ -635,6 +630,32 @@ func (s *Service) getECPart(ctx context.Context, cnr cid.ID, parent oid.ID, rule
 	}
 
 	return *parentHdr, buf, nil
+}
+
+func (s *Service) maxLinkerSize() uint64 {
+	if s.maxObjectSizeSrc == nil {
+		return 0
+	}
+	return min(s.maxObjectSizeSrc.MaxObjectSize(), math.MaxInt)
+}
+
+func (s *Service) readSizeSplitLinkerPayload(size uint64, r io.Reader) ([]byte, error) {
+	limit := s.maxLinkerSize()
+	if limit == 0 {
+		return nil, errors.New("maximum object size is unavailable")
+	}
+	if size > limit {
+		return nil, fmt.Errorf("linker payload size %d exceeds limit %d", size, limit)
+	}
+
+	buf := make([]byte, size)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, io.ErrUnexpectedEOF
+		}
+		return nil, igrpc.ConvertContextStatus(err)
+	}
+	return buf, nil
 }
 
 // queries object that carries EC part produced within cnr for parent object and
@@ -1023,13 +1044,8 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 	}
 
 	if partHdr.Type() == object.TypeLink {
-		buf := make([]byte, partHdr.PayloadSize())
-		if _, err := io.ReadFull(firstPartStream, buf); err != nil {
-			if errors.Is(err, io.EOF) {
-				err = io.ErrUnexpectedEOF
-			} else {
-				err = igrpc.ConvertContextStatus(err)
-			}
+		buf, err := s.readSizeSplitLinkerPayload(partHdr.PayloadSize(), firstPartStream)
+		if err != nil {
 			return 0, 0, fmt.Errorf("read size-split linker payload stream: %w", err)
 		}
 		partHdr.SetPayload(buf)

@@ -531,6 +531,7 @@ func TestGetLocalOnly(t *testing.T) {
 		var link object.Link
 		link.SetObjects(linkChildren)
 		linkObj.WriteLink(link)
+		linkObj.SetPayloadSize(uint64(len(linkObj.Payload())))
 
 		storage.addVirtual(splitAddr, splitInfo)
 		ns, as := testNodeMatrix(t, []int{1})
@@ -549,6 +550,7 @@ func TestGetLocalOnly(t *testing.T) {
 		newSvc := func() *Service {
 			svc := &Service{cfg: new(cfg)}
 			svc.log = zaptest.NewLogger(t)
+			svc.maxObjectSizeSrc = testMaxObjectSize(linkObj.PayloadSize())
 			svc.localObjects = storage
 			svc.localStorage = storage
 			svc.neoFSNet = &testNeoFS{vectors: vectors}
@@ -1262,6 +1264,39 @@ func parameterizeXHeaders(t testing.TB, p *Prm, ss []string) {
 	cp := util.CommonPrmFromRequest(0, xs, common.RequestTokens{})
 
 	p.SetCommonParameters(cp)
+}
+
+func TestSimpleObjectWriterPayloadLimit(t *testing.T) {
+	const limit = 5
+	var hdr object.Object
+	hdr.SetPayloadSize(limit + 1)
+
+	w := NewSimpleObjectWriter()
+	// Header-only callers should not allocate a payload buffer.
+	require.NoError(t, w.WriteHeader(&hdr))
+	require.Zero(t, cap(w.pld))
+
+	w.payloadLimit = limit
+	body := bytes.NewBufferString("link!")
+	closer := new(mockIOCloser)
+	exec := execCtx{
+		log:             zaptest.NewLogger(t),
+		collectedHeader: &hdr,
+		collectedReader: ioReadCloser{Reader: body, Closer: closer},
+	}
+	exec.prm.objWriter = w
+	exec.writeCollectedObject()
+	require.ErrorContains(t, exec.err, "exceeds limit")
+	require.Equal(t, "link!", body.String())
+	require.EqualValues(t, 1, closer.count.Load())
+
+	hdr.SetPayloadSize(limit - 1)
+	require.NoError(t, w.WriteHeader(&hdr))
+	require.Equal(t, limit-1, cap(w.pld))
+	require.NoError(t, w.WriteChunk([]byte("li")))
+	require.NoError(t, w.WriteChunk([]byte("nk")))
+	require.ErrorContains(t, w.WriteChunk([]byte("!")), "exceeds declared size")
+	require.Equal(t, []byte("link"), w.Object().Payload())
 }
 
 func TestWriteCollectedHeaderPayloadOnlyDoesNotStartResponse(t *testing.T) {

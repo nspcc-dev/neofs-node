@@ -659,6 +659,10 @@ func copyPayloadStreamBuffer(w ChunkWriter, r io.Reader, buf []byte) (uint64, er
 func (exec *execCtx) writeCollectedObject() {
 	if ok := exec.writeCollectedHeader(); ok {
 		exec.writeObjectPayload(exec.collectedHeader, exec.collectedReader)
+	} else if exec.collectedReader != nil {
+		if err := exec.collectedReader.Close(); err != nil {
+			exec.log.Debug("error while closing payload reader", zap.Error(err))
+		}
 	}
 }
 
