@@ -52,10 +52,33 @@ type Clients struct {
 	pingTimeout          time.Duration
 	getClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
 
-	mtx   sync.RWMutex
-	conns map[string]*connections // keys are public key bytes
+	mtx    sync.RWMutex
+	conns  map[string]*connections // keys are public key bytes
+	failed map[string]failedDial   // keys are public key bytes
 
 	signer neofscrypto.Signer
+	now    func() time.Time
+}
+
+type failedDial struct {
+	err      error
+	retryAt  time.Time
+	failures int
+}
+
+func initBackoff(failures int) time.Duration {
+	if failures <= 0 {
+		return 0
+	}
+	delay := float64(backoff.DefaultConfig.BaseDelay)
+	maxDelay := float64(backoff.DefaultConfig.MaxDelay)
+	for range failures - 1 {
+		delay *= backoff.DefaultConfig.Multiplier
+		if delay >= maxDelay {
+			return backoff.DefaultConfig.MaxDelay
+		}
+	}
+	return time.Duration(delay)
 }
 
 // NewClients constructs Clients initializing connection to any endpoint with
@@ -72,7 +95,9 @@ func NewClients(l *zap.Logger, signBufPool *sync.Pool, streamTimeout, minConnTim
 		pingTimeout:          pingTimeout,
 		getClientCertificate: getClientCertificate,
 		conns:                make(map[string]*connections),
+		failed:               make(map[string]failedDial),
 		signer:               signer,
+		now:                  time.Now,
 	}
 }
 
@@ -87,6 +112,13 @@ func (x *Clients) CloseAll() {
 
 func snCacheKey(pub []byte) string { return string(pub) }
 
+func (x *Clients) recentlyFailedErr(cacheKey string) error {
+	if f, ok := x.failed[cacheKey]; ok && x.now().Before(f.retryAt) {
+		return fmt.Errorf("recently failed: %w", f.err)
+	}
+	return nil
+}
+
 // Get initializes connections to network addresses of described SN and returns
 // interface to access them. All opened connections are cached and kept alive
 // until [Clients.CloseAll].
@@ -95,9 +127,19 @@ func (x *Clients) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.Mul
 
 	x.mtx.RLock()
 	c, ok := x.conns[cacheKey]
+	var failedErr error
+	if !ok {
+		failedErr = x.recentlyFailedErr(cacheKey)
+	}
 	x.mtx.RUnlock()
 	if ok {
 		return c, nil
+	}
+	if failedErr != nil {
+		return nil, failedErr
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("init connections: %w", err)
 	}
 
 	x.mtx.Lock()
@@ -105,11 +147,26 @@ func (x *Clients) Get(ctx context.Context, info netmap.NodeInfo) (clientcore.Mul
 	if c, ok = x.conns[cacheKey]; ok {
 		return c, nil
 	}
+	if err := x.recentlyFailedErr(cacheKey); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("init connections: %w", err)
+	}
 
 	c, err := x.initConnections(ctx, info.PublicKey(), info.NetworkEndpoints())
 	if err != nil {
-		return nil, fmt.Errorf("init connections: %w", err)
+		initErr := fmt.Errorf("init connections: %w", err)
+		if !errors.Is(err, context.Canceled) && !errors.Is(ctx.Err(), context.Canceled) {
+			f := x.failed[cacheKey]
+			f.err = initErr
+			f.failures++
+			f.retryAt = x.now().Add(initBackoff(f.failures))
+			x.failed[cacheKey] = f
+		}
+		return nil, initErr
 	}
+	delete(x.failed, cacheKey)
 	x.conns[cacheKey] = c
 	return c, nil
 }
@@ -138,6 +195,9 @@ func (x *Clients) SyncWithNewNetmap(ctx context.Context, sns []netmap.NodeInfo, 
 		conns.closeAll()
 		l.Info("finished closing all connections of SN not present in the new network map")
 		return true
+	})
+	maps.DeleteFunc(x.failed, func(pub string, _ failedDial) bool {
+		return !slices.ContainsFunc(sns, func(sn netmap.NodeInfo) bool { return string(sn.PublicKey()) == pub })
 	})
 }
 
