@@ -33,7 +33,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261118200649-304e6f6e0619` (#4267, #4302, #4341)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261123152608-5ba5c155d49a` (#4267, #4302, #4341, #4367)
 - `github.com/nspcc-dev/neofs-contract` module to `v0.28.1-0.20261110143356-1fd09a8bf001` (#4268)
 
 ### Updating from v0.58.2
