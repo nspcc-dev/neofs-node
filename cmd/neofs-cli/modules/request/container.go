@@ -125,15 +125,25 @@ func createContainer(cmd *cobra.Command, args []string) error {
 				Attributes:      body.Container.Attributes,
 				PlacementPolicy: (*netmap.PlacementPolicy)(body.Container.StoragePolicy).ProtoMessage(),
 			},
-			Signature: &refs.SignatureRFC6979{
-				Key:  body.Witness.VerificationScript,
-				Sign: body.Witness.InvocationScript,
-			},
 		},
 		MetaHeader: metaHdr,
 	}
-	if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer((*neofsecdsa.Signer)(pk), req, nil); err != nil {
-		return fmt.Errorf("failed to sign request with generated ECDSA private key: %w", err)
+	if signWholeReq(v) {
+		req.VerifyHeader = new(protosession.RequestVerificationHeader{
+			RequestSignature: &refs.Signature{
+				Scheme: refs.SignatureScheme_N3,
+				Key:    body.Witness.VerificationScript,
+				Sign:   body.Witness.InvocationScript,
+			},
+		})
+	} else {
+		req.Body.Signature = &refs.SignatureRFC6979{
+			Key:  body.Witness.VerificationScript,
+			Sign: body.Witness.InvocationScript,
+		}
+		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer((*neofsecdsa.Signer)(pk), req, nil); err != nil {
+			return fmt.Errorf("failed to sign request with generated ECDSA private key: %w", err)
+		}
 	}
 
 	var transportCreds credentials.TransportCredentials
@@ -234,4 +244,12 @@ func createContainer(cmd *cobra.Command, args []string) error {
 	}
 
 	return awaitContainerCreationError(time.Since(pollStart) / time.Second) // to not see nanos
+}
+
+func signWholeReq(v *refs.Version) bool {
+	const (
+		mjr = 2
+		mnr = 29
+	)
+	return v != nil && ((v.Major == mjr && v.Minor >= mnr) || v.Major > mjr)
 }
