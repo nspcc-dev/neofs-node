@@ -10,6 +10,8 @@ import (
 	"math"
 	"net"
 	"os"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
@@ -109,30 +111,25 @@ func initGRPC(c *cfg) {
 	// although docs state that 'passthrough' is set by default, it should be set explicitly for activation
 	resolver.SetDefaultScheme("passthrough")
 
-	if c.cfgMorph.client == nil {
-		initMorphComponents(c)
-	}
-
 	maxRecvMsgSizeOpt, err := getMaxRecvMsgSizeOpt(c)
 	fatalOnErrDetails("read max object size network setting to determine gRPC recv message limit", err)
 
 	if err := buildGRPCServers(c, maxRecvMsgSizeOpt); err != nil {
 		fatalOnErr(err)
 	}
+}
 
-	// register a single shutdown hook that stops whatever servers are current
-	// at the time of shutdown (including those created by reload).
-	c.onShutdown(func() {
-		c.cfgGRPC.mu.Lock()
-		srvs := make([]*grpc.Server, len(c.cfgGRPC.servers))
-		for i, entry := range c.cfgGRPC.servers {
-			srvs[i] = entry.srv
-		}
-		c.cfgGRPC.mu.Unlock()
-		for _, srv := range srvs {
-			stopGRPC("NeoFS Public API", srv, c.log)
-		}
-	})
+func (c *cfg) stopPublicGRPC() {
+	c.cfgGRPC.mu.Lock()
+	c.cfgGRPC.stopping = true
+	servers := slices.Clone(c.cfgGRPC.servers)
+	c.cfgGRPC.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for _, entry := range servers {
+		wg.Go(func() { stopGRPC("NeoFS Public API", entry.srv, c.log) })
+	}
+	wg.Wait()
 }
 
 // getMaxRecvMsgSizeOpt computes the grpc.MaxRecvMsgSize option based on the
@@ -322,6 +319,10 @@ func reloadGRPC(c *cfg, oldCfg grpcConfigSnapshot) error {
 
 	c.cfgGRPC.mu.Lock()
 	defer c.cfgGRPC.mu.Unlock()
+
+	if c.cfgGRPC.stopping {
+		return nil
+	}
 
 	newServers, freshServers, freshListeners := reconcileGRPCServers(c.cfgGRPC.servers, newCfg,
 		func(snap grpcServerSnapshot) (*grpc.Server, net.Listener, error) {

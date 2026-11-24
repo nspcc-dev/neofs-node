@@ -26,6 +26,7 @@ Changelog for NeoFS Node
 - PUT with initial placement `MaxReplicas` and `PreferLocal` could succeed with fewer replicas than required or fail needlessly after an EC rule failure (#4332)
 - SN could crash when reading split-object linkers with oversized payloads (#4355)
 - PUT requests (payload parts) could be replayed (#4367)
+- SN could return `object not found` for existing objects while shutting down (#4365)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)

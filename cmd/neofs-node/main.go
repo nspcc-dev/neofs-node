@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 
 	"github.com/nspcc-dev/neofs-node/cmd/neofs-node/config"
 	"github.com/nspcc-dev/neofs-node/internal/sdnotify"
@@ -132,6 +133,7 @@ func initAndLog(c *cfg, name string, initializer func(*cfg)) {
 func initApp(c *cfg) {
 	initAndLog(c, "control", initControlService)
 	initLocalStorage(c)
+	initMorphComponents(c)
 	initAndLog(c, "gRPC", initGRPC)
 
 	initAndLog(c, "container", initContainerService)
@@ -158,6 +160,10 @@ func initApp(c *cfg) {
 			c,
 		)
 	}
+
+	// Register the API closers last so they run before their dependencies.
+	c.onShutdown(c.stopControlGRPC)
+	c.onShutdown(c.stopPublicGRPC)
 }
 
 func runAndLog(c *cfg, name string, logSuccess bool, starter func(*cfg)) {
@@ -193,7 +199,7 @@ func wait(c *cfg) {
 }
 
 func shutdown(c *cfg) {
-	for _, closer := range c.closers {
+	for _, closer := range slices.Backward(c.closers) {
 		closer()
 	}
 
