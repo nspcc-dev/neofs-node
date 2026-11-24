@@ -312,6 +312,9 @@ type putStream struct {
 
 	knownPayloadLength  bool
 	expBytes, recvBytes uint64 // payload (undefined if knownPayloadLength is false)
+
+	streamID  uint64
+	streamSeq uint64
 }
 
 func newIntermediatePutStream(signer ecdsa.PrivateKey, base *putsvc.Streamer, ctx context.Context, log *zap.Logger) *putStream {
@@ -405,7 +408,41 @@ func (x *putStream) forwardInitRequest(req *protoobject.PutRequest, initPart *pr
 	return nil
 }
 
+func streamMustBeOrdered(v *refs.Version) bool {
+	const (
+		mjr = 2
+		mnr = 29
+	)
+	return v != nil && ((v.Major == mjr && v.Minor >= mnr) || v.Major > mjr)
+}
+
 func (x *putStream) forwardChunkRequest(req *protoobject.PutRequest, c []byte) error {
+	if x.streamID != 0 {
+		return fmt.Errorf("outdated stream Chunk received, but non-zero stream ID received in Init stream part: %d", x.streamID)
+	}
+
+	return x.handleChunk(req, c)
+}
+
+func (x *putStream) forwardPayloadChunkRequest(req *protoobject.PutRequest, c *protoobject.PutRequest_Body_ChunkData) error {
+	if x.streamID == 0 {
+		return newBadRequestError("ordered payload Chunk received, but the old stream is expected based on Init stream part")
+	}
+	if x.streamID != c.GetStreamId() {
+		return newBadRequestError(fmt.Sprintf("incorrect stream ID: from Init part: %d, from #%d Chunk: %d",
+			x.streamID, c.GetSequenceNumber(), c.GetStreamId()))
+	}
+	chunkSeq := c.GetSequenceNumber()
+	if chunkSeq != x.streamSeq {
+		return newBadRequestError(fmt.Sprintf(
+			"unexpected payload Chunk counter: expected #%d, got #%d", x.streamSeq, chunkSeq))
+	}
+	x.streamSeq++
+
+	return x.handleChunk(req, c.GetPayload())
+}
+
+func (x *putStream) handleChunk(req *protoobject.PutRequest, c []byte) error {
 	if x.knownPayloadLength {
 		if x.recvBytes += uint64(len(c)); x.recvBytes > x.expBytes {
 			return putsvc.ErrWrongPayloadSize
@@ -469,7 +506,10 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			reqFirst = req
 		}
 
-		if c := req.GetBody().GetChunk(); c != nil {
+		//nolint:staticcheck // we must still support it yet
+		if c := req.GetBody().GetPayloadChunk().GetPayload(); len(c) > 0 {
+			s.metrics.AddPutPayload(len(c))
+		} else if c := req.GetBody().GetChunk(); len(c) > 0 {
 			s.metrics.AddPutPayload(len(c))
 		}
 
@@ -508,8 +548,15 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 				return s.sendStatusPutResponse(gStream, err, reqFirst)
 			}
 			initPart = v.Init
+		//nolint:staticcheck // we must still support it yet
 		case *protoobject.PutRequest_Body_Chunk:
 			if err = ps.forwardChunkRequest(req, v.Chunk); err != nil {
+				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
+				return err
+			}
+			continue
+		case *protoobject.PutRequest_Body_PayloadChunk:
+			if err = ps.forwardPayloadChunkRequest(req, v.PayloadChunk); err != nil {
 				err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 				return err
 			}
@@ -527,6 +574,14 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 		if err != nil {
 			err = newBadRequestError(invalidPutRequestInitFieldMessage + ": invalid header field: " + err.Error()) // defer
 			return s.sendStatusPutResponse(gStream, err, reqFirst)
+		}
+
+		if v := req.GetMetaHeader().GetVersion(); streamMustBeOrdered(v) {
+			ps.streamID = initPart.GetStreamId()
+			if ps.streamID == 0 {
+				err = newBadRequestError(invalidPutRequestInitFieldMessage + ": invalid zero stream ID") // defer
+				return s.sendStatusPutResponse(gStream, err, reqFirst)
+			}
 		}
 
 		err = s.checkContainerRevision(initPart.GetContainerRevision(), cnrID)

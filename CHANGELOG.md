@@ -25,6 +25,7 @@ Changelog for NeoFS Node
 - Meta service panicked with "send on closed channel" on shutdown, closing the chain-fed channels before the chain was stopped (#4299)
 - PUT with initial placement `MaxReplicas` and `PreferLocal` could succeed with fewer replicas than required or fail needlessly after an EC rule failure (#4332)
 - SN could crash when reading split-object linkers with oversized payloads (#4355)
+- PUT requests (payload parts) could be replayed (#4367)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
@@ -33,7 +34,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261118200649-304e6f6e0619` (#4267, #4302, #4341)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261123152608-5ba5c155d49a` (#4267, #4302, #4341, #4367)
 - `github.com/nspcc-dev/neofs-contract` module to `v0.28.1-0.20261110143356-1fd09a8bf001` (#4268)
 
 ### Updating from v0.58.2
