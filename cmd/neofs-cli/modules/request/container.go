@@ -25,7 +25,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -110,15 +109,16 @@ func createContainer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to generate ECDSA private key: %w", err)
 	}
 
+	v := (*refs.Version)(body.Container.Version)
 	metaHdr := &protosession.RequestMetaHeader{
-		Version:        version.Current().ProtoMessage(),
+		Version:        v,
 		ValidUntilTime: uint64(time.Now().Add(5 * time.Minute).UTC().Unix()),
 	}
 
 	req := &protocontainer.PutRequest{
 		Body: &protocontainer.PutRequest_Body{
 			Container: &protocontainer.Container{
-				Version:         (*refs.Version)(body.Container.Version),
+				Version:         v,
 				OwnerId:         (*user.ID)(body.Container.Owner).ProtoMessage(),
 				Nonce:           body.Container.Nonce[:],
 				BasicAcl:        (*acl.Basic)(body.Container.BasicACL).Bits(),
