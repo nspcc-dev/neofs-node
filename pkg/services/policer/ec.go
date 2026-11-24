@@ -349,7 +349,7 @@ headNextPart:
 			return
 		}
 
-		parts, err := fillParityParts(obj, rule, int(partLen))
+		parts, err := fillParityParts(obj, rule, int(partLen), parentHdr.PayloadSize())
 		if err != nil {
 			p.log.Warn("restoring EC parity parts from other EC rules failed",
 				zap.Stringer("container", cnr), zap.Stringer("parent", parent), zap.Stringer("rule", rule),
@@ -516,7 +516,7 @@ getNextPart:
 		obj = obj[:needLen]
 	}
 
-	parts, err := fillParityParts(obj, rule, int(partLen))
+	parts, err := fillParityParts(obj, rule, int(partLen), parentHeader.PayloadSize())
 	if err != nil {
 		return nil, fmt.Errorf("missing parity EC parts cannot be re-calculated: %w", err)
 	}
@@ -532,7 +532,8 @@ func parityIndexes(rule iec.Rule) []int {
 	return res
 }
 
-func fillParityParts(obj []byte, rule iec.Rule, partLen int) ([][]byte, error) {
+func fillParityParts(obj []byte, rule iec.Rule, partLen int, payloadSize uint64) ([][]byte, error) {
+	clear(obj[payloadSize : int(rule.DataPartNum)*partLen])
 	var (
 		parityIdxs = parityIndexes(rule)
 		parts      = sliceECParts(obj, partLen, rule, parityIdxs)
