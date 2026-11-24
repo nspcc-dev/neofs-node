@@ -4,7 +4,7 @@ Changelog for NeoFS Node
 ## [Unreleased]
 
 ### Added
-- Support for minimum EC parts required for successful PUT (#4267)
+- Support for minimum EC parts required for successful PUT (#4267, #4370)
 - Support of container *AttributeV2 RPC requests (#4268)
 - Support for container policies with limited number of additional nodes (#4269, #4302)
 

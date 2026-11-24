@@ -521,6 +521,13 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 			if leftReplicas > sumLimitsSinceRule(pos+1) {
 				return false, newMaxReplicasError(maxReplicas, maxReplicas-leftReplicas, ruleIdx, err)
 			}
+			// A failed EC rule does not contribute to MaxReplicas, even if
+			// some parts were stored and signed before it failed.
+			if t.metaCollection != nil {
+				t.metaCollection.signaturesMtx.Lock()
+				t.metaCollection.signatures[ruleIdx] = t.metaCollection.signatures[ruleIdx][:0]
+				t.metaCollection.signaturesMtx.Unlock()
+			}
 			t.placementIterator.log.Info("PUT by EC rule failure", zap.Stringer("object", obj.Address()), zap.Error(err))
 			return false, nil
 		}
@@ -614,10 +621,6 @@ func (t *distributedTarget) saveObject(obj object.Object, encObj encodedObject) 
 }
 
 func (t *distributedTarget) minECPartNum(ruleIdx int) uint32 {
-	// Metadata placement currently requires signatures from all EC parts.
-	if t.metainfoConsistencyAttr == "strict" || t.metainfoConsistencyAttr == "optimistic" {
-		return 0
-	}
 	if ruleIdx < len(t.ecMinPartNums) {
 		return t.ecMinPartNums[ruleIdx]
 	}
