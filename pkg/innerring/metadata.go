@@ -1,7 +1,6 @@
 package innerring
 
 import (
-	"bytes"
 	"context"
 	"crypto/elliptic"
 	"errors"
@@ -125,10 +124,6 @@ func buildContainerPlacement(vectors [][]netmap.NodeInfo, policy netmap.Placemen
 				cnrVector.MinECParts = cnrVector.REP
 			}
 		}
-
-		slices.SortFunc(v, func(a, b netmap.NodeInfo) int {
-			return bytes.Compare(a.PublicKey(), b.PublicKey())
-		})
 
 		kk := make(keys.PublicKeys, 0, len(v))
 		for _, n := range v {
