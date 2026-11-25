@@ -21,6 +21,7 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/internal/storagetest"
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/shard/mode"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
@@ -348,6 +349,45 @@ func testPutTombstone(t *testing.T, shardNum int) {
 				require.ErrorIs(t, getObjErr, apistatus.ErrObjectAlreadyRemoved)
 			}
 		})
+	}
+}
+
+// A shard refuses a broadcast object for good and another one fails for a
+// reason of its own: the error says why the object was refused, whichever
+// shard is looked at last.
+func TestStorageEngine_Put_Broadcast_FatalErrorIsReported(t *testing.T) {
+	for range 8 {
+		ver := version.Current()
+		var tomb object.Object
+		tomb.SetVersion(&ver)
+		tomb.SetContainerID(cidtest.ID())
+		tomb.SetID(oidtest.ID())
+		tomb.SetOwner(usertest.ID())
+		tomb.SetPayloadChecksum(checksum.NewSHA256([32]byte(testutil.RandByteSlice(32))))
+		tomb.SetAttributes(
+			object.NewAttribute("__NEOFS__EXPIRATION_EPOCH", strconv.Itoa(100)),
+		)
+		tomb.AssociateDeleted(oidtest.OtherID(tomb.GetID()))
+		// A lock for a tombstone is refused by every shard that has the
+		// tombstone.
+		lock := tomb
+		lock.SetID(oidtest.OtherID(tomb.GetID()))
+		lock.SetAttributes()
+		lock.AssociateLocked(tomb.GetID())
+
+		e := testNewEngineWithShardNum(t, 3)
+		require.NoError(t, e.Put(context.Background(), &tomb, nil))
+		require.NoError(t, e.unsortedShards()[0].SetMode(mode.ReadOnly))
+
+		err := e.Put(context.Background(), &lock, nil)
+		require.ErrorIs(t, err, apistatus.ErrLockNonRegularObject)
+
+		lockAddr := lock.Address()
+		for _, sh := range e.unsortedShards() {
+			exists, err := sh.Exists(lockAddr, false)
+			require.NoError(t, err)
+			require.False(t, exists)
+		}
 	}
 }
 
