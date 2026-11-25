@@ -5,6 +5,7 @@ import (
 
 	meta "github.com/nspcc-dev/neofs-node/pkg/local_object_storage/metabase"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
+	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	"github.com/stretchr/testify/require"
@@ -111,6 +112,70 @@ func TestDB_ReviveObject(t *testing.T) {
 		c, err = db.ObjectCounters()
 		require.NoError(t, err)
 		require.Equal(t, cBefore, c)
+	})
+
+	t.Run("target deleted by GC before revive", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+
+		target := generateObjectWithCID(t, cnr)
+		other := generateObjectWithCID(t, cnr)
+		require.NoError(t, putBig(db, target))
+		require.NoError(t, putBig(db, other))
+
+		_, err := db.MarkGarbage(cnr, []oid.ID{other.GetID()}, meta.GarbageMarkDefault)
+		require.NoError(t, err)
+		require.NoError(t, db.Put(createTSForObject(cnr, target.GetID())))
+
+		_, delDiff, err := db.Delete(cnr, []oid.ID{target.GetID()})
+		require.NoError(t, err)
+		require.Equal(t, meta.CountersDiff{Phy: -1, Root: -1, GC: -1}, delDiff)
+
+		res, diff, err := db.ReviveObject(target.Address())
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
+		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1}, diff)
+
+		c, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, meta.ObjectCounters{Phy: 1, Root: 1, GC: 1}, c)
+	})
+
+	t.Run("absent target", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+		target := oidtest.ID()
+
+		require.NoError(t, db.Put(createTSForObject(cnr, target)))
+
+		res, diff, err := db.ReviveObject(oid.NewAddress(cnr, target))
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
+		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1, GC: -1}, diff)
+
+		c, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, meta.ObjectCounters{}, c)
+	})
+
+	t.Run("non-physical parent", func(t *testing.T) {
+		db := newDB(t)
+		cnr := cidtest.ID()
+
+		parent := generateObjectWithCID(t, cnr)
+		child := generateObjectWithCID(t, cnr)
+		child.SetParent(parent)
+		require.NoError(t, putBig(db, child))
+		require.NoError(t, db.Put(createTSForObject(cnr, parent.GetID())))
+
+		res, diff, err := db.ReviveObject(parent.Address())
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
+		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1, GC: -1}, diff)
+
+		c, err := db.ObjectCounters()
+		require.NoError(t, err)
+		require.Equal(t, meta.ObjectCounters{Phy: 1, Root: 1, GC: 1}, c)
 	})
 
 	t.Run("from GC", func(t *testing.T) {

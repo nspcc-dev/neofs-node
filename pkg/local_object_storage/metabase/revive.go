@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -127,13 +128,14 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, diff CountersDif
 				return nil
 			}
 		}
-		diff.GC--
-		diff.add(reviveCountersDiff(metaCursor, addr.Object()))
-
-		// Deleted objects are marked as garbage as well, so this mark is _always_ deleted.
-		if err := metaBucket.Delete(mkGarbageKey(addr.Object())); err != nil {
-			return err
+		gcKey := mkGarbageKey(addr.Object())
+		if k, _ := metaCursor.Seek(gcKey); bytes.Equal(k, gcKey) {
+			if err := metaCursor.Delete(); err != nil {
+				return err
+			}
+			diff.GC--
 		}
+		diff.add(reviveCountersDiff(metaCursor, addr.Object()))
 
 		if err := applyDiff(metaBucket, diff); err != nil {
 			return fmt.Errorf("failed to update counters: %w", err)
