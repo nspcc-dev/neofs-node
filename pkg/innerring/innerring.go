@@ -167,7 +167,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 			return fmt.Errorf("main notary deposit: %w", err)
 		}
 
-		s.log.Info("made main chain notary deposit successfully")
+		s.log.Info("ensured main chain notary deposit")
 	}
 
 	err = s.depositFSNotary(ctx)
@@ -175,7 +175,7 @@ func (s *Server) Start(ctx context.Context, intError chan<- error) (err error) {
 		return fmt.Errorf("fs chain notary deposit: %w", err)
 	}
 
-	s.log.Info("made fs chain notary deposit successfully")
+	s.log.Info("ensured fs chain notary deposit")
 
 	// vote for FS chain validator if it is prepared in config
 	err = s.voteForFSChainValidator(ctx, s.predefinedValidators, nil)

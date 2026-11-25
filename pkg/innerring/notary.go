@@ -33,9 +33,11 @@ func (s *Server) depositMainNotary(ctx context.Context) error {
 	}
 
 	till := uint32(s.epochDuration.Load()) + notaryExtraBlocks
-	s.log.Debug("making main chain notary deposit",
-		zap.Stringer("fixed8 deposit", depositAmount),
-		zap.Uint32("till", till))
+	if depositAmount > 0 {
+		s.log.Debug("making main chain notary deposit",
+			zap.Stringer("fixed8 deposit", depositAmount),
+			zap.Uint32("till", till))
+	}
 
 	return s.mainnetClient.DepositNotary(ctx, depositAmount, till)
 }
@@ -46,7 +48,9 @@ func (s *Server) depositFSNotary(ctx context.Context) error {
 		return fmt.Errorf("could not calculate FS notary deposit amount: %w", err)
 	}
 
-	s.log.Debug("making FS chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
+	if depositAmount > 0 {
+		s.log.Debug("making FS chain endless notary deposit", zap.Stringer("fixed8 deposit", depositAmount))
+	}
 
 	return s.fsChainClient.DepositEndlessNotary(ctx, depositAmount)
 }

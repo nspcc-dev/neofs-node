@@ -142,7 +142,9 @@ func (c *Client) ProbeNotary() (res bool) {
 // with notary contract. It used by notary contract in to produce fallback tx
 // if main tx failed to create. Deposit isn't last forever, so it should
 // be called periodically. Notary support should be enabled in client to
-// use this function. Blocks until transaction is persisted.
+// use this function. When amount is 0 and the existing deposit already covers
+// the computed expiration height, no transaction is sent. Blocks until
+// transaction is persisted.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) DepositNotary(ctx context.Context, amount fixedn.Fixed8, delta uint32) error {
@@ -167,14 +169,19 @@ func (c *Client) DepositNotary(ctx context.Context, amount fixedn.Fixed8, delta 
 	}
 
 	till := max(int64(bc+delta), currentTill)
+	if shouldSkipNotaryDeposit(amount, currentTill, till) {
+		c.logger.Debug("skipping notary deposit", zap.Int64("expire_at", currentTill))
+		return nil
+	}
 
 	return c.depositNotary(ctx, conn, amount, till)
 }
 
 // DepositEndlessNotary calls notary deposit method. Unlike `DepositNotary`,
 // this method sets notary deposit till parameter to a maximum possible value.
-// This allows to avoid ValidAfterDeposit failures. Blocks until transaction is
-// persisted.
+// This allows to avoid ValidAfterDeposit failures. When amount is 0 and the
+// existing deposit is already endless, no transaction is sent. Blocks until
+// transaction is persisted.
 //
 // This function must be invoked with notary enabled otherwise it throws panic.
 func (c *Client) DepositEndlessNotary(ctx context.Context, amount fixedn.Fixed8) error {
@@ -188,8 +195,25 @@ func (c *Client) DepositEndlessNotary(ctx context.Context, amount fixedn.Fixed8)
 		panic(notaryNotEnabledPanicMsg)
 	}
 
+	if amount == 0 {
+		currentTill, err := c.depositExpirationOf()
+		if err != nil {
+			return fmt.Errorf("can't get previous expiration value: %w", err)
+		}
+
+		if shouldSkipNotaryDeposit(amount, currentTill, math.MaxUint32) {
+			c.logger.Debug("skipping endless notary deposit", zap.Int64("expire_at", currentTill))
+			return nil
+		}
+	}
+
 	// till value refers to a block height and it is uint32 value in neo-go
 	return c.depositNotary(ctx, conn, amount, math.MaxUint32)
+}
+
+// expirationOf returns 0 when no deposit exists, so currentTill > 0 prevents skipping an initial deposit.
+func shouldSkipNotaryDeposit(amount fixedn.Fixed8, currentTill, targetTill int64) bool {
+	return amount == 0 && currentTill > 0 && targetTill <= currentTill
 }
 
 func (c *Client) depositNotary(ctx context.Context, conn *connection, amount fixedn.Fixed8, till int64) error {
@@ -846,7 +870,7 @@ func alreadyOnChainError(err error) bool {
 //	IF notaryBalance < gasBalance * gasMul {
 //	    DEPOSIT gasBalance / gasDiv
 //	} ELSE {
-//	    DEPOSIT 1
+//	    DEPOSIT 0
 //	}
 //
 // gasMul and gasDiv must be positive.
@@ -861,19 +885,23 @@ func CalculateNotaryDepositAmount(c *Client, gasMul, gasDiv int64) (fixedn.Fixed
 		return 0, fmt.Errorf("could not get GAS balance: %w", err)
 	}
 
-	if gasBalance == 0 {
-		return 0, errors.New("zero gas balance, nothing to deposit")
-	}
+	return calculateNotaryDepositAmount(notaryBalance, gasBalance, gasMul, gasDiv)
+}
 
-	var depositAmount int64
+func calculateNotaryDepositAmount(notaryBalance, gasBalance, gasMul, gasDiv int64) (fixedn.Fixed8, error) {
+	if gasBalance == 0 {
+		if notaryBalance == 0 {
+			return 0, errors.New("zero gas balance, nothing to deposit")
+		}
+
+		return 0, nil
+	}
 
 	if gasBalance*gasMul > notaryBalance {
-		depositAmount = gasBalance / gasDiv
-	} else {
-		depositAmount = 1
+		return fixedn.Fixed8(gasBalance / gasDiv), nil
 	}
 
-	return fixedn.Fixed8(depositAmount), nil
+	return 0, nil
 }
 
 // CalculateNonceAndVUB calculates nonce and ValidUntilBlock values
