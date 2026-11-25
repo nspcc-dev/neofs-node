@@ -538,16 +538,20 @@ func (x *getECTransport) CopyECParentHeaderAndPayloadFromRemoteFirstPart(ctx con
 			}
 
 			copiedHdr, parentPldLen, partPldLen, copiedPartPld, err = x.copyRemotePart(ctx, conn, req)
+			if err != nil || copiedHdr {
+				// A connection retry must not reuse a buffer returned to the pool.
+				if needSign {
+					x.getPartRequest = nil
+				} else {
+					x.getPartRequestUnsigned = nil
+				}
+				defaultGRPCBufferPool.Put(req)
+			}
 			if err != nil {
-				defaultGRPCBufferPool.Put(x.getPartRequest)
 				return err
 			}
-
-			if copiedHdr {
-				defaultGRPCBufferPool.Put(x.getPartRequest)
-				if copiedPartPld == partPldLen {
-					return nil
-				}
+			if copiedHdr && copiedPartPld == partPldLen {
+				return nil
 			}
 
 			return clientcore.ErrSkipConnection

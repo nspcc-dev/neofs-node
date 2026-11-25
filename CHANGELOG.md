@@ -27,6 +27,7 @@ Changelog for NeoFS Node
 - SN could crash when reading split-object linkers with oversized payloads (#4355)
 - PUT requests (payload parts) could be replayed (#4367)
 - SN could return `object not found` for existing objects while shutting down (#4365)
+- SN could panic during an EC GET over inter-node mTLS (#4362)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
