@@ -12,7 +12,9 @@ import (
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/protobuf/protoscan"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -189,6 +191,32 @@ func decodeObjectID(m *protorefs.ObjectID) (oid.ID, error) {
 	var res oid.ID
 	if err := res.FromProtoMessage(m); err != nil {
 		return oid.ID{}, fmt.Errorf("invalid object ID: %w", err)
+	}
+	return res, nil
+}
+
+func fetchAssociatedObjectID(attrs []*protoobject.Header_Attribute) (oid.ID, error) {
+	var (
+		res   oid.ID
+		found bool
+	)
+	for _, a := range attrs {
+		if a.GetKey() != object.AttributeAssociatedObject {
+			continue
+		}
+		if found {
+			return oid.ID{}, errors.New("duplicate associated object attribute")
+		}
+		if err := res.DecodeString(a.GetValue()); err != nil {
+			return oid.ID{}, fmt.Errorf("invalid associated object ID: %w", err)
+		}
+		if res.IsZero() {
+			return oid.ID{}, errors.New("zero associated object ID")
+		}
+		found = true
+	}
+	if !found {
+		return oid.ID{}, errors.New("missing associated object attribute")
 	}
 	return res, nil
 }

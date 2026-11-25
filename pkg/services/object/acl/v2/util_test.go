@@ -20,9 +20,8 @@ func TestIsVerbCompatible(t *testing.T) {
 		session.VerbObjectHead: {
 			session.VerbObjectHead,
 			session.VerbObjectGet,
-			session.VerbObjectDelete,
 		},
-		session.VerbObjectSearch: {session.VerbObjectSearch, session.VerbObjectDelete},
+		session.VerbObjectSearch: {session.VerbObjectSearch},
 	}
 
 	verbs := []session.ObjectVerb{
@@ -70,6 +69,10 @@ func TestAssertSessionRelation(t *testing.T) {
 	tok.LimitByObjects(obj)
 
 	// test fixed object session (here obj arg must be non-nil everywhere)
+	require.NoError(t, assertSessionRelation(tok, cnr, obj))
+	require.Error(t, assertSessionRelation(tok, cnr, objOther))
+
+	tok.ForVerb(session.VerbObjectDelete)
 	require.NoError(t, assertSessionRelation(tok, cnr, obj))
 	require.Error(t, assertSessionRelation(tok, cnr, objOther))
 }

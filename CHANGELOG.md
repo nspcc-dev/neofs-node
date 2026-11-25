@@ -29,6 +29,7 @@ Changelog for NeoFS Node
 - SN could return `object not found` for existing objects while shutting down (#4365)
 - SN could panic during an EC GET over inter-node mTLS (#4362)
 - Storage and Inner Ring nodes sent a 1e-8 GAS FS-chain notary deposit transaction every epoch when the existing deposit was already sufficient (#4356)
+- Object session token for deletion authorized HEAD and SEARCH of any object in the container (#4301)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)

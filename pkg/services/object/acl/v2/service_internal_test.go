@@ -29,6 +29,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
@@ -541,4 +542,40 @@ func TestGetRequestCredentialsUsesTLSAuthenticatedPeer(t *testing.T) {
 		_, _, err = s.getRequestCredentials(ctx, req, common.RequestTokens{SessionV1: &token})
 		require.ErrorContains(t, err, "session token is not bound to the request signer")
 	})
+}
+
+func TestVerifySessionV1DeleteTokenScope(t *testing.T) {
+	issuer, holder := usertest.User(), usertest.User()
+	cnr := cidtest.ID()
+	objA, objB := oidtest.ID(), oidtest.ID()
+	require.NotEqual(t, objA, objB)
+
+	var tok session.Object
+	tok.SetID(uuid.New())
+	tok.ForVerb(session.VerbObjectDelete)
+	tok.BindContainer(cnr)
+	tok.LimitByObjects(objA)
+	tok.SetExp(1)
+	tok.SetAuthKey(holder.Public())
+	require.NoError(t, tok.Sign(issuer))
+
+	msg := tok.ProtoMessage()
+	s := New(nopFSChain{}, isessions.NewObjectSessionsCache(1),
+		WithIRFetcher(nopIR{}), WithNetmapper(nopNetmapContract{}),
+		WithContainerSource(nopContrainerContract{}), WithTimeProvider(mockChainTime{}))
+
+	_, err := s.VerifySessionV1TokenMessage(msg, session.VerbObjectDelete, cnr, objA)
+	require.NoError(t, err)
+
+	_, err = s.VerifySessionV1TokenMessage(msg, session.VerbObjectDelete, cnr, objB)
+	require.ErrorContains(t, err, "requested object is not related to the session")
+
+	_, err = s.VerifySessionV1TokenMessage(msg, session.VerbObjectHead, cnr, objA)
+	require.ErrorIs(t, err, errInvalidVerb)
+
+	_, err = s.VerifySessionV1TokenMessage(msg, session.VerbObjectHead, cnr, objB)
+	require.Error(t, err)
+
+	_, err = s.VerifySessionV1TokenMessage(msg, session.VerbObjectSearch, cnr, oid.ID{})
+	require.ErrorIs(t, err, errInvalidVerb)
 }

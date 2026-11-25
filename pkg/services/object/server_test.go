@@ -57,11 +57,14 @@ import (
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
+	protostatus "github.com/nspcc-dev/neofs-sdk-go/proto/status"
 	"github.com/nspcc-dev/neofs-sdk-go/reputation"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/nspcc-dev/neofs-sdk-go/stat"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
+	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -1102,4 +1105,158 @@ type mockGRPCConn struct {
 
 func (x *mockGRPCConn) ForAnyGRPCConn(ctx context.Context, f func(context.Context, *grpc.ClientConn) error) error {
 	return f(ctx, x.conn)
+}
+
+type nopPutHandler struct {
+	noCallObjectService
+}
+
+func (nopPutHandler) Put(context.Context) (*putsvc.Streamer, error) {
+	return nil, nil
+}
+
+type singleReqPutStream struct {
+	grpc.ServerStream
+	ctx  context.Context
+	req  *protoobject.PutRequest
+	sent bool
+	resp *protoobject.PutResponse
+}
+
+func (s *singleReqPutStream) Context() context.Context { return s.ctx }
+
+func (s *singleReqPutStream) Recv() (*protoobject.PutRequest, error) {
+	if s.sent {
+		return nil, io.EOF
+	}
+	s.sent = true
+	return s.req, nil
+}
+
+func (s *singleReqPutStream) SendAndClose(resp *protoobject.PutResponse) error {
+	s.resp = resp
+	return nil
+}
+
+type sessionV1VerifyRecorder struct {
+	nopReqInfoExtractor
+	called bool
+	verb   session.ObjectVerb
+	cnr    cid.ID
+	obj    oid.ID
+	err    error
+}
+
+func (r *sessionV1VerifyRecorder) VerifySessionV1TokenMessage(_ *protosession.SessionToken, verb session.ObjectVerb, cnr cid.ID, obj oid.ID) (session.Object, error) {
+	r.called = true
+	r.verb = verb
+	r.cnr = cnr
+	r.obj = obj
+	return session.Object{}, r.err
+}
+
+func TestServer_Put_TombstoneSessionObjectBinding(t *testing.T) {
+	signer := usertest.User()
+	cnr := cidtest.ID()
+	tombID, targetID := oidtest.ID(), oidtest.ID()
+	require.NotEqual(t, tombID, targetID)
+
+	stopErr := errors.New("stop after session check")
+	validUntil := uint64(fixedFutureTimeProvider{}.Now().Add(time.Minute).Unix())
+
+	newPutRequest := func(t *testing.T, objID *refs.ObjectID, objType protoobject.ObjectType, attrs []*protoobject.Header_Attribute) *protoobject.PutRequest {
+		t.Helper()
+		req := &protoobject.PutRequest{
+			Body: &protoobject.PutRequest_Body{
+				ObjectPart: &protoobject.PutRequest_Body_Init_{
+					Init: &protoobject.PutRequest_Body_Init{
+						ObjectId: objID,
+						Header: &protoobject.Header{
+							ContainerId: cnr.ProtoMessage(),
+							ObjectType:  objType,
+							Attributes:  attrs,
+						},
+						StreamId: 1,
+					},
+				},
+			},
+			MetaHeader: &protosession.RequestMetaHeader{
+				Version:        version.Current().ProtoMessage(),
+				ValidUntilTime: validUntil,
+				SessionToken:   &protosession.SessionToken{},
+			},
+		}
+		var err error
+		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
+		require.NoError(t, err)
+		return req
+	}
+
+	runPut := func(t *testing.T, req *protoobject.PutRequest) (*sessionV1VerifyRecorder, *protoobject.PutResponse) {
+		t.Helper()
+		rec := &sessionV1VerifyRecorder{err: stopErr}
+		srv := New(nopPutHandler{}, nopFSChain{}, noCallTestStorage{}, nil, signer.ECDSAPrivateKey, nopMetrics{}, noCallTestACLChecker{}, rec, noCallClients{}, fixedFutureTimeProvider{}, zap.NewNop())
+		stream := &singleReqPutStream{ctx: context.Background(), req: req}
+		require.NoError(t, srv.Put(stream))
+		require.NotNil(t, stream.resp)
+		return rec, stream.resp
+	}
+
+	t.Run("tombstone uses associated object ID", func(t *testing.T) {
+		attrs := []*protoobject.Header_Attribute{
+			{Key: object.AttributeAssociatedObject, Value: targetID.EncodeToString()},
+		}
+		for _, tc := range []struct {
+			name  string
+			objID *refs.ObjectID
+		}{
+			{name: "prepared", objID: tombID.ProtoMessage()},
+			{name: "unprepared", objID: nil},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				req := newPutRequest(t, tc.objID, protoobject.ObjectType_TOMBSTONE, attrs)
+				rec, resp := runPut(t, req)
+				require.True(t, rec.called)
+				require.Equal(t, session.VerbObjectDelete, rec.verb)
+				require.Equal(t, cnr, rec.cnr)
+				require.Equal(t, targetID, rec.obj)
+				require.Contains(t, resp.GetMetaHeader().GetStatus().GetMessage(), stopErr.Error())
+			})
+		}
+	})
+
+	t.Run("regular object uses object ID", func(t *testing.T) {
+		req := newPutRequest(t, tombID.ProtoMessage(), protoobject.ObjectType_REGULAR, nil)
+		rec, _ := runPut(t, req)
+		require.True(t, rec.called)
+		require.Equal(t, session.VerbObjectPut, rec.verb)
+		require.Equal(t, cnr, rec.cnr)
+		require.Equal(t, tombID, rec.obj)
+	})
+
+	t.Run("invalid associated object rejected as bad request", func(t *testing.T) {
+		for _, tc := range []struct {
+			name  string
+			attrs []*protoobject.Header_Attribute
+		}{
+			{name: "missing", attrs: nil},
+			{name: "malformed", attrs: []*protoobject.Header_Attribute{
+				{Key: object.AttributeAssociatedObject, Value: "not-an-oid"},
+			}},
+			{name: "zero", attrs: []*protoobject.Header_Attribute{
+				{Key: object.AttributeAssociatedObject, Value: (oid.ID{}).EncodeToString()},
+			}},
+			{name: "duplicate", attrs: []*protoobject.Header_Attribute{
+				{Key: object.AttributeAssociatedObject, Value: targetID.EncodeToString()},
+				{Key: object.AttributeAssociatedObject, Value: tombID.EncodeToString()},
+			}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				req := newPutRequest(t, tombID.ProtoMessage(), protoobject.ObjectType_TOMBSTONE, tc.attrs)
+				rec, resp := runPut(t, req)
+				require.False(t, rec.called)
+				require.EqualValues(t, protostatus.BadRequest, resp.GetMetaHeader().GetStatus().GetCode())
+			})
+		}
+	})
 }

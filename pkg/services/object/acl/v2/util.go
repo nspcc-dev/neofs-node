@@ -14,12 +14,7 @@ func assertVerb(tok session.Object, reqVerb session.ObjectVerb) bool {
 	default:
 		return tok.AssertVerb(reqVerb)
 	case session.VerbObjectHead:
-		return tok.AssertVerb(
-			session.VerbObjectHead,
-			session.VerbObjectGet,
-			session.VerbObjectDelete)
-	case session.VerbObjectSearch:
-		return tok.AssertVerb(session.VerbObjectSearch, session.VerbObjectDelete)
+		return tok.AssertVerb(session.VerbObjectHead, session.VerbObjectGet)
 	}
 }
 
@@ -37,10 +32,7 @@ func assertSessionRelation(tok session.Object, cnr cid.ID, obj oid.ID) error {
 		return errors.New("requested container is not related to the session")
 	}
 
-	// if session relates to object's removal, we don't check
-	// relation of the tombstone to the session here since user
-	// can't predict tomb's ID.
-	if !tok.AssertVerb(session.VerbObjectDelete) && !obj.IsZero() && !tok.AssertObject(obj) {
+	if !obj.IsZero() && !tok.AssertObject(obj) {
 		return errors.New("requested object is not related to the session")
 	}
 
