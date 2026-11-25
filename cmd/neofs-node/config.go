@@ -246,7 +246,8 @@ type cfgGRPCServer struct {
 type cfgGRPC struct {
 	mu sync.Mutex
 
-	servers []cfgGRPCServer
+	stopping bool
+	servers  []cfgGRPCServer
 
 	// serviceRegistrators stores functions that register gRPC service
 	// implementations into a gRPC server.
