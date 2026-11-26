@@ -17,6 +17,7 @@ Changelog for NeoFS Node
 - SN does not cache session tokens in REPLICATE (#4082)
 
 ### Changed
+- Improved EC GET parallelism by fetching secondary data parts once the first part header is read (#4101)
 - Optimized GET for fully buffered payloads (#4058)
 - Proxied GET data is not checked against SHA256 hash from header (#4081)
 - SN requests EC part ranges using GET API instead of deprecated RANGE one (#4067)
