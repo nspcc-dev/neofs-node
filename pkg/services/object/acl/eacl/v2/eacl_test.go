@@ -200,21 +200,6 @@ func TestV2Split(t *testing.T) {
 	firstObject.SetParent(&originalObject)
 	require.NoError(t, firstObject.CalculateAndSetID())
 
-	hs := &protoobject.Header_Split{
-		ParentHeader: originalObject.ProtoMessage().Header,
-		First:        firstObject.GetID().ProtoMessage(),
-	}
-	hdr := &protoobject.Header{
-		Split: hs,
-	}
-	req := &protoobject.PutRequest{
-		Body: &protoobject.PutRequest_Body{
-			ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{
-				Header: hdr,
-			}},
-		},
-	}
-
 	priv, err := keys.NewPrivateKey()
 	require.NoError(t, err)
 	senderKey := priv.PublicKey()
@@ -230,37 +215,51 @@ func TestV2Split(t *testing.T) {
 
 	table := eacl.ConstructTable([]eacl.Record{r})
 
-	hdrSrc := &testHeaderSource{}
+	cnr, id := cidtest.ID(), oidtest.ID()
 
-	newSource := func(t *testing.T) eacl.TypedHeaderSource {
+	newUnit := func(t *testing.T, split *protoobject.Header_Split, src HeaderSource, tbl *eacl.Table) *eacl.ValidationUnit {
+		t.Helper()
+		req := &protoobject.PutRequest{
+			Body: &protoobject.PutRequest_Body{
+				ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{
+					Header: &protoobject.Header{Split: split},
+				}},
+			},
+		}
 		hdrSrc, err := NewMessageHeaderSource(
-			WithHeaderSource(hdrSrc),
+			WithHeaderSource(src),
 			WithServiceRequest(req),
+			WithCID(cnr),
+			WithOID(id),
 		)
 		require.NoError(t, err)
-		return hdrSrc
+		return new(eacl.ValidationUnit).
+			WithOperation(eacl.OperationPut).
+			WithEACLTable(tbl).
+			WithAccount(userID).
+			WithHeaderSource(hdrSrc)
 	}
-
-	unit := new(eacl.ValidationUnit).
-		WithOperation(eacl.OperationPut).
-		WithEACLTable(&table).
-		WithAccount(userID)
 
 	validator := eacl.NewValidator()
 
 	t.Run("denied by parent's attribute; first object", func(t *testing.T) {
 		// ensure fetching the first object is not possible, only already attached information
 		// is available
-		hdrSrc.header = nil
+		split := &protoobject.Header_Split{
+			ParentHeader: originalObject.ProtoMessage().Header,
+			First:        firstObject.GetID().ProtoMessage(),
+		}
 
-		checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+		checkAction(t, eacl.ActionDeny, validator, newUnit(t, split, &testHeaderSource{}, &table))
 	})
 
 	t.Run("denied by parent's attribute; non-first object", func(t *testing.T) {
 		// get the first object from the "network"
-		hdrSrc.header = &firstObject
+		split := &protoobject.Header_Split{
+			First: firstObject.GetID().ProtoMessage(),
+		}
 
-		checkAction(t, eacl.ActionDeny, validator, unit.WithHeaderSource(newSource(t)))
+		checkAction(t, eacl.ActionDeny, validator, newUnit(t, split, &testHeaderSource{header: &firstObject}, &table))
 	})
 
 	t.Run("allow cause no restricted attribute found", func(t *testing.T) {
@@ -268,10 +267,44 @@ func TestV2Split(t *testing.T) {
 		originalObjectNoRestrictedAttr.SetID(oid.ID{}) // no object ID for an original object in the first object
 		originalObjectNoRestrictedAttr.SetSignature(&neofscrypto.Signature{})
 
-		hs.ParentHeader = originalObjectNoRestrictedAttr.ProtoMessage().Header
+		split := &protoobject.Header_Split{
+			ParentHeader: originalObjectNoRestrictedAttr.ProtoMessage().Header,
+			First:        firstObject.GetID().ProtoMessage(),
+		}
 
-		// allow an object whose first obj does not have the restricted attribute
-		checkDefaultAction(t, validator, unit.WithHeaderSource(newSource(t)))
+		checkDefaultAction(t, validator, newUnit(t, split, &testHeaderSource{}, &table))
+	})
+
+	t.Run("missing first object ID", func(t *testing.T) {
+		action, _, err := validator.CalculateAction(newUnit(t, &protoobject.Header_Split{}, &testHeaderSource{}, &table))
+		require.ErrorContains(t, err, "neither a parent header nor a first object ID")
+		require.Equal(t, eacl.ActionDeny, action)
+	})
+
+	t.Run("parent header not required by policy", func(t *testing.T) {
+		tbl := eacl.ConstructTable([]eacl.Record{eacl.ConstructRecord(eacl.ActionAllow, eacl.OperationPut, []eacl.Target{tgt})})
+		checkAction(t, eacl.ActionAllow, validator, newUnit(t, &protoobject.Header_Split{}, &testHeaderSource{}, &tbl))
+	})
+
+	t.Run("address filters do not require parent header", func(t *testing.T) {
+		tbl := eacl.ConstructTable([]eacl.Record{
+			eacl.ConstructRecord(eacl.ActionAllow, eacl.OperationPut, []eacl.Target{tgt},
+				eacl.NewFilterObjectsFromContainer(cnr), eacl.NewFilterObjectWithID(id)),
+			eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationPut, []eacl.Target{tgt}),
+		})
+		checkAction(t, eacl.ActionAllow, validator, newUnit(t, &protoobject.Header_Split{}, &testHeaderSource{}, &tbl))
+	})
+
+	t.Run("address and attribute filters require parent header", func(t *testing.T) {
+		tbl := eacl.ConstructTable([]eacl.Record{
+			eacl.ConstructRecord(eacl.ActionDeny, eacl.OperationPut, []eacl.Target{tgt},
+				eacl.NewFilterObjectsFromContainer(cnr),
+				eacl.NewFilterObjectWithID(id),
+				eacl.NewObjectPropertyFilter(attrKey, eacl.MatchStringEqual, attrVal)),
+		})
+		action, _, err := validator.CalculateAction(newUnit(t, &protoobject.Header_Split{}, &testHeaderSource{}, &tbl))
+		require.ErrorContains(t, err, "neither a parent header nor a first object ID")
+		require.Equal(t, eacl.ActionDeny, action)
 	})
 }
 
@@ -400,27 +433,36 @@ func TestV2SplitMiddlePart(t *testing.T) {
 	})
 
 	t.Run("PUT", func(t *testing.T) {
-		req := &protoobject.PutRequest{Body: &protoobject.PutRequest_Body{
-			ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{Header: middle.ProtoMessage().Header}},
-		}}
-		opts := []Option{WithServiceRequest(req)}
-		t.Run("denied by parent attribute", func(t *testing.T) {
-			action, final, err := calculate(t, &testHeaderSource{header: &first}, middle, eacl.OperationPut, secretFilter, opts)
-			require.NoError(t, err)
-			require.True(t, final)
-			require.Equal(t, eacl.ActionDeny, action)
-		})
-		t.Run("first part without parent", func(t *testing.T) {
-			action, final, err := calculate(t, &testHeaderSource{header: &middle}, middle, eacl.OperationPut, secretFilter, opts)
-			require.NoError(t, err)
-			require.True(t, final)
-			require.Equal(t, eacl.ActionAllow, action)
-		})
-		t.Run("first part unavailable", func(t *testing.T) {
-			hs := &testHeaderSource{err: errors.New("any error")}
-			_, _, err := calculate(t, hs, middle, eacl.OperationPut, secretFilter, opts)
-			require.ErrorIs(t, err, hs.err)
-		})
+		for _, part := range []struct {
+			name string
+			obj  object.Object
+		}{{"middle part", middle}, {"EC part of middle part", ecPart}} {
+			t.Run(part.name, func(t *testing.T) {
+				req := &protoobject.PutRequest{Body: &protoobject.PutRequest_Body{
+					ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{Header: part.obj.ProtoMessage().Header}},
+				}}
+				opts := []Option{WithServiceRequest(req)}
+				t.Run("denied by parent attribute", func(t *testing.T) {
+					hs := &testHeaderSource{header: &first}
+					action, final, err := calculate(t, hs, part.obj, eacl.OperationPut, secretFilter, opts)
+					require.NoError(t, err)
+					require.True(t, final)
+					require.Equal(t, eacl.ActionDeny, action)
+					require.Equal(t, []oid.Address{oid.NewAddress(cnr, firstID)}, hs.calls)
+				})
+				t.Run("first part without parent", func(t *testing.T) {
+					action, _, err := calculate(t, &testHeaderSource{header: &middle}, part.obj, eacl.OperationPut, secretFilter, opts)
+					require.ErrorContains(t, err, "has no parent header")
+					require.Equal(t, eacl.ActionDeny, action)
+				})
+				t.Run("first part unavailable", func(t *testing.T) {
+					hs := &testHeaderSource{err: errors.New("any error")}
+					action, _, err := calculate(t, hs, part.obj, eacl.OperationPut, secretFilter, opts)
+					require.ErrorIs(t, err, hs.err)
+					require.Equal(t, eacl.ActionDeny, action)
+				})
+			})
+		}
 	})
 }
 
