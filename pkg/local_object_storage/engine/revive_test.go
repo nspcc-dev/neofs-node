@@ -8,6 +8,7 @@ import (
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
+	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +35,7 @@ func TestStorageEngine_ReviveObject(t *testing.T) {
 	rs, err := e.ReviveObject(context.Background(), addr)
 	require.NoError(t, err)
 	require.Equal(t, meta.ReviveStatusGraveyard, rs.Shards[0].Status.StatusType())
-	require.Equal(t, tsAddr, rs.Shards[0].Status.TombstoneAddress())
+	require.Equal(t, []oid.Address{tsAddr}, rs.Shards[0].Status.TombstoneAddresses())
 
 	got, err := e.Get(context.Background(), addr)
 	require.NoError(t, err)

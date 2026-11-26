@@ -19,14 +19,19 @@ func (s *Shard) ReviveObject(addr oid.Address) (meta.ReviveStatus, error) {
 		return meta.ReviveStatus{}, ErrDegradedMode
 	}
 
-	st, err := s.metaBase.ReviveObject(addr)
+	st, diff, err := s.metaBase.ReviveObject(addr)
 	if err == nil {
+		s.applyCountersDiff(addr.Container(), diff)
 		s.redundant.remove(addr.Container(), []oid.ID{addr.Object()})
-		if ts := st.TombstoneAddress(); !ts.Object().IsZero() {
-			if delErr := s.deleteObjs(addr.Container(), []oid.ID{ts.Object()}); delErr != nil {
-				s.log.Debug("tombstone delete after revive failed", zap.Stringer("tombstone", ts), zap.Error(delErr))
+		if tombs := st.TombstoneAddresses(); len(tombs) > 0 {
+			tsIDs := make([]oid.ID, len(tombs))
+			for i := range tombs {
+				tsIDs[i] = tombs[i].Object()
+			}
+			if delErr := s.deleteObjs(addr.Container(), tsIDs); delErr != nil {
+				s.log.Debug("tombstone delete after revive failed", zap.Stringers("tombstones", tombs), zap.Error(delErr))
 			} else {
-				s.log.Debug("tombstone deleted after revive", zap.Stringer("tombstone", ts))
+				s.log.Debug("tombstone deleted after revive", zap.Stringers("tombstones", tombs))
 			}
 		}
 	}

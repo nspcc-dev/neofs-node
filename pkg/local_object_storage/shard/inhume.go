@@ -96,11 +96,7 @@ func (s *Shard) inhumeContainer(cID cid.ID) error {
 		return err
 	}
 
-	s.addObjectCounter(gcObjType, diff.GC)
-	if diff.Payload != 0 {
-		s.addToContainerSize(cID.EncodeToString(), diff.Payload)
-		s.addToPayloadCounter(diff.Payload)
-	}
+	s.applyCountersDiff(cID, diff)
 
 	return nil
 }

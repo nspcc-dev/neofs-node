@@ -255,14 +255,7 @@ func (s *Shard) putToMetabaseLocked(addr oid.Address, hdr object.Object, cachedP
 		return fmt.Errorf("could not put object to metabase: %w", metaErr)
 	}
 
-	s.addObjectCounter(physicalObjType, diff.Phy)
-	s.addObjectCounter(rootObjType, diff.Root)
-	s.addObjectCounter(tsObjType, diff.TS)
-	s.addObjectCounter(lockObjType, diff.Lock)
-	s.addObjectCounter(linkObjType, diff.Link)
-	s.addObjectCounter(gcObjType, diff.GC)
-	s.addToContainerSize(addr.Container().EncodeToString(), diff.Payload)
-	s.addToPayloadCounter(diff.Payload)
+	s.applyCountersDiff(addr.Container(), diff)
 
 	return nil
 }

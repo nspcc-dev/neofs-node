@@ -320,6 +320,34 @@ func TestInhumeContainerCounters(t *testing.T) {
 	checkRestarted(t, objsC2, objsC2, objsC2, 0, map[cid.ID]int64{c1: 0, c2: 0})
 }
 
+func TestZeroPayloadContainerSize(t *testing.T) {
+	t.Run("zero-byte put", func(t *testing.T) {
+		dir := t.TempDir()
+		sh, mm := shardWithMetrics(t, dir)
+
+		cnr := cidtest.ID()
+		obj := generateObjectWithPayload(cnr, nil)
+		obj.SetPayloadSize(0)
+		require.NoError(t, sh.Put(obj, nil))
+
+		require.Equal(t, map[cid.ID]int64{cnr: 0}, mm.containerSize)
+		require.Zero(t, mm.payloadSize)
+
+		require.NoError(t, sh.Close())
+		_, mm = shardWithMetrics(t, dir)
+		require.Equal(t, map[cid.ID]int64{cnr: 0}, mm.containerSize)
+		require.Zero(t, mm.payloadSize)
+	})
+
+	t.Run("inhume absent container", func(t *testing.T) {
+		sh, mm := shardWithMetrics(t, t.TempDir())
+
+		require.NoError(t, sh.InhumeContainer(cidtest.ID()))
+		require.Empty(t, mm.containerSize)
+		require.Zero(t, mm.payloadSize)
+	})
+}
+
 func TestTombstoneCounters(t *testing.T) {
 	t.Run("absent target", func(t *testing.T) {
 		sh, mm := shardWithMetrics(t, t.TempDir())
@@ -353,6 +381,137 @@ func TestTombstoneCounters(t *testing.T) {
 		require.Equal(t, uint64(1), mm.objectCounters[gcObj])
 		require.Zero(t, mm.payloadSize)
 		require.Zero(t, mm.containerSize[cnr])
+	})
+}
+
+func TestReviveCounters(t *testing.T) {
+	cnr := cidtest.ID()
+	newTombstone := func(target oid.ID) *object.Object {
+		tombObj := objecttest.Object()
+		tombObj.ResetRelations()
+		tombObj.SetPayload(nil)
+		tombObj.SetPayloadSize(0)
+		tombObj.SetContainerID(cnr)
+		tombObj.AssociateDeleted(target)
+		return &tombObj
+	}
+
+	alive := map[string]uint64{
+		phyObj:  1,
+		rootObj: 1,
+		tsObj:   0,
+		lockObj: 0,
+		linkObj: 0,
+		gcObj:   0,
+	}
+
+	setup := func(t *testing.T) (string, *shard.Shard, *metricsStore, *object.Object, int64) {
+		t.Helper()
+		dir := t.TempDir()
+		sh, mm := shardWithMetrics(t, dir)
+		obj := generateObjectWithCID(cnr)
+		addPayload(obj, 100)
+		require.NoError(t, sh.Put(obj, nil))
+		return dir, sh, mm, obj, int64(obj.PayloadSize())
+	}
+
+	check := func(t *testing.T, mm *metricsStore, counters map[string]uint64, payload int64) {
+		t.Helper()
+		require.Equal(t, counters, mm.objectCounters)
+		require.Equal(t, map[cid.ID]int64{cnr: payload}, mm.containerSize)
+		require.Equal(t, payload, mm.payloadSize)
+	}
+	checkRestarted := func(t *testing.T, dir string, sh *shard.Shard, counters map[string]uint64, payload int64) (*shard.Shard, *metricsStore) {
+		t.Helper()
+		require.NoError(t, sh.Close())
+		sh, mm := shardWithMetrics(t, dir)
+		check(t, mm, counters, payload)
+		return sh, mm
+	}
+
+	t.Run("from garbage", func(t *testing.T) {
+		dir, sh, mm, obj, size := setup(t)
+
+		require.NoError(t, sh.MarkGarbage(cnr, []oid.ID{obj.GetID()}, meta.GarbageMarkDefault))
+		require.Equal(t, uint64(1), mm.objectCounters[gcObj])
+		require.Zero(t, mm.containerSize[cnr])
+		require.Zero(t, mm.payloadSize)
+
+		_, err := sh.ReviveObject(obj.Address())
+		require.NoError(t, err)
+
+		check(t, mm, alive, size)
+		checkRestarted(t, dir, sh, alive, size)
+	})
+
+	t.Run("from tombstone", func(t *testing.T) {
+		dir, sh, mm, obj, size := setup(t)
+
+		require.NoError(t, sh.Put(newTombstone(obj.GetID()), nil))
+
+		require.Equal(t, uint64(2), mm.objectCounters[phyObj])
+		require.Equal(t, uint64(1), mm.objectCounters[tsObj])
+		require.Equal(t, uint64(1), mm.objectCounters[gcObj])
+		require.Zero(t, mm.containerSize[cnr])
+		require.Zero(t, mm.payloadSize)
+
+		_, err := sh.ReviveObject(obj.Address())
+		require.NoError(t, err)
+
+		check(t, mm, alive, size)
+		checkRestarted(t, dir, sh, alive, size)
+	})
+
+	t.Run("two tombstones", func(t *testing.T) {
+		dir, sh, mm, obj, size := setup(t)
+
+		ts1 := newTombstone(obj.GetID())
+		ts2 := newTombstone(obj.GetID())
+		require.NoError(t, sh.Put(ts1, nil))
+		require.NoError(t, sh.Put(ts2, nil))
+
+		rs, err := sh.ReviveObject(obj.Address())
+		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, rs.StatusType())
+		require.ElementsMatch(t, []oid.Address{ts1.Address(), ts2.Address()}, rs.TombstoneAddresses())
+
+		exists, err := sh.Exists(obj.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+		for _, ts := range []*object.Object{ts1, ts2} {
+			exists, err = sh.Exists(ts.Address(), false)
+			require.NoError(t, err)
+			require.False(t, exists)
+		}
+
+		check(t, mm, alive, size)
+		checkRestarted(t, dir, sh, alive, size)
+	})
+
+	t.Run("target deleted by GC", func(t *testing.T) {
+		dir, sh, mm, obj, _ := setup(t)
+
+		other := generateObjectWithCID(cnr)
+		addPayload(other, 50)
+		require.NoError(t, sh.Put(other, nil))
+		require.NoError(t, sh.MarkGarbage(cnr, []oid.ID{other.GetID()}, meta.GarbageMarkDefault))
+		require.NoError(t, sh.Put(newTombstone(obj.GetID()), nil))
+
+		require.NoError(t, sh.Delete(cnr, []oid.ID{obj.GetID()}))
+
+		_, err := sh.ReviveObject(obj.Address())
+		require.NoError(t, err)
+
+		want := map[string]uint64{
+			phyObj:  1,
+			rootObj: 1,
+			tsObj:   0,
+			lockObj: 0,
+			linkObj: 0,
+			gcObj:   1,
+		}
+		check(t, mm, want, 0)
+		checkRestarted(t, dir, sh, want, 0)
 	})
 }
 

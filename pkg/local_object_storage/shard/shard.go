@@ -379,3 +379,19 @@ func (s *Shard) addToPayloadCounter(size int64) {
 		s.metricsWriter.AddToPayloadSize(size)
 	}
 }
+
+// applyCountersDiff updates the shard's metrics according to a counters diff
+// reported by the metabase.
+func (s *Shard) applyCountersDiff(cnr cid.ID, diff meta.CountersDiff) {
+	if diff == (meta.CountersDiff{}) {
+		return
+	}
+	s.addObjectCounter(physicalObjType, diff.Phy)
+	s.addObjectCounter(rootObjType, diff.Root)
+	s.addObjectCounter(tsObjType, diff.TS)
+	s.addObjectCounter(lockObjType, diff.Lock)
+	s.addObjectCounter(linkObjType, diff.Link)
+	s.addObjectCounter(gcObjType, diff.GC)
+	s.addToContainerSize(cnr.EncodeToString(), diff.Payload)
+	s.addToPayloadCounter(diff.Payload)
+}
