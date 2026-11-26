@@ -25,7 +25,6 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/user"
-	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -110,30 +109,41 @@ func createContainer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to generate ECDSA private key: %w", err)
 	}
 
+	v := (*refs.Version)(body.Container.Version)
 	metaHdr := &protosession.RequestMetaHeader{
-		Version:        version.Current().ProtoMessage(),
+		Version:        v,
 		ValidUntilTime: uint64(time.Now().Add(5 * time.Minute).UTC().Unix()),
 	}
 
 	req := &protocontainer.PutRequest{
 		Body: &protocontainer.PutRequest_Body{
 			Container: &protocontainer.Container{
-				Version:         (*refs.Version)(body.Container.Version),
+				Version:         v,
 				OwnerId:         (*user.ID)(body.Container.Owner).ProtoMessage(),
 				Nonce:           body.Container.Nonce[:],
 				BasicAcl:        (*acl.Basic)(body.Container.BasicACL).Bits(),
 				Attributes:      body.Container.Attributes,
 				PlacementPolicy: (*netmap.PlacementPolicy)(body.Container.StoragePolicy).ProtoMessage(),
 			},
-			Signature: &refs.SignatureRFC6979{
-				Key:  body.Witness.VerificationScript,
-				Sign: body.Witness.InvocationScript,
-			},
 		},
 		MetaHeader: metaHdr,
 	}
-	if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer((*neofsecdsa.Signer)(pk), req, nil); err != nil {
-		return fmt.Errorf("failed to sign request with generated ECDSA private key: %w", err)
+	if signWholeReq(v) {
+		req.VerifyHeader = new(protosession.RequestVerificationHeader{
+			RequestSignature: &refs.Signature{
+				Scheme: refs.SignatureScheme_N3,
+				Key:    body.Witness.VerificationScript,
+				Sign:   body.Witness.InvocationScript,
+			},
+		})
+	} else {
+		req.Body.Signature = &refs.SignatureRFC6979{
+			Key:  body.Witness.VerificationScript,
+			Sign: body.Witness.InvocationScript,
+		}
+		if req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer((*neofsecdsa.Signer)(pk), req, nil); err != nil {
+			return fmt.Errorf("failed to sign request with generated ECDSA private key: %w", err)
+		}
 	}
 
 	var transportCreds credentials.TransportCredentials
@@ -234,4 +244,12 @@ func createContainer(cmd *cobra.Command, args []string) error {
 	}
 
 	return awaitContainerCreationError(time.Since(pollStart) / time.Second) // to not see nanos
+}
+
+func signWholeReq(v *refs.Version) bool {
+	const (
+		mjr = 2
+		mnr = 29
+	)
+	return v != nil && ((v.Major == mjr && v.Minor >= mnr) || v.Major > mjr)
 }
