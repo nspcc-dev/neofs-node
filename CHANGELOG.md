@@ -30,6 +30,7 @@ Changelog for NeoFS Node
 - SN could panic during an EC GET over inter-node mTLS (#4362)
 - Storage and Inner Ring nodes sent a 1e-8 GAS FS-chain notary deposit transaction every epoch when the existing deposit was already sufficient (#4356)
 - Policer recreated wrong EC parts when restoring an EC rule from another EC rule (#4328)
+- SN client cache repeatedly dialed unreachable peers without backoff, stalling policer and other callers (#4336)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
