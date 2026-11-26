@@ -433,26 +433,36 @@ func TestV2SplitMiddlePart(t *testing.T) {
 	})
 
 	t.Run("PUT", func(t *testing.T) {
-		req := &protoobject.PutRequest{Body: &protoobject.PutRequest_Body{
-			ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{Header: middle.ProtoMessage().Header}},
-		}}
-		opts := []Option{WithServiceRequest(req)}
-		t.Run("denied by parent attribute", func(t *testing.T) {
-			action, final, err := calculate(t, &testHeaderSource{header: &first}, middle, eacl.OperationPut, secretFilter, opts)
-			require.NoError(t, err)
-			require.True(t, final)
-			require.Equal(t, eacl.ActionDeny, action)
-		})
-		t.Run("first part without parent", func(t *testing.T) {
-			action, _, err := calculate(t, &testHeaderSource{header: &middle}, middle, eacl.OperationPut, secretFilter, opts)
-			require.ErrorContains(t, err, "has no parent header")
-			require.Equal(t, eacl.ActionDeny, action)
-		})
-		t.Run("first part unavailable", func(t *testing.T) {
-			hs := &testHeaderSource{err: errors.New("any error")}
-			_, _, err := calculate(t, hs, middle, eacl.OperationPut, secretFilter, opts)
-			require.ErrorIs(t, err, hs.err)
-		})
+		for _, part := range []struct {
+			name string
+			obj  object.Object
+		}{{"middle part", middle}, {"EC part of middle part", ecPart}} {
+			t.Run(part.name, func(t *testing.T) {
+				req := &protoobject.PutRequest{Body: &protoobject.PutRequest_Body{
+					ObjectPart: &protoobject.PutRequest_Body_Init_{Init: &protoobject.PutRequest_Body_Init{Header: part.obj.ProtoMessage().Header}},
+				}}
+				opts := []Option{WithServiceRequest(req)}
+				t.Run("denied by parent attribute", func(t *testing.T) {
+					hs := &testHeaderSource{header: &first}
+					action, final, err := calculate(t, hs, part.obj, eacl.OperationPut, secretFilter, opts)
+					require.NoError(t, err)
+					require.True(t, final)
+					require.Equal(t, eacl.ActionDeny, action)
+					require.Equal(t, []oid.Address{oid.NewAddress(cnr, firstID)}, hs.calls)
+				})
+				t.Run("first part without parent", func(t *testing.T) {
+					action, _, err := calculate(t, &testHeaderSource{header: &middle}, part.obj, eacl.OperationPut, secretFilter, opts)
+					require.ErrorContains(t, err, "has no parent header")
+					require.Equal(t, eacl.ActionDeny, action)
+				})
+				t.Run("first part unavailable", func(t *testing.T) {
+					hs := &testHeaderSource{err: errors.New("any error")}
+					action, _, err := calculate(t, hs, part.obj, eacl.OperationPut, secretFilter, opts)
+					require.ErrorIs(t, err, hs.err)
+					require.Equal(t, eacl.ActionDeny, action)
+				})
+			})
+		}
 	})
 }
 

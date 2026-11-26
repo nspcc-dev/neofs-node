@@ -126,7 +126,7 @@ func (h *headerSource) HeaderValue(typ eacl.FilterHeaderType, key string) ([]byt
 				return nil, h.loadErr
 			}
 			value, found = lookupObjectHeader(h.obj, h.cfg.cnr, h.cfg.obj, h.addressOnly, key)
-			if !found && !isAddressKey(key) && !h.cfg.isPut() {
+			if !found && !isAddressKey(key) {
 				first = splitFirstID(h.obj)
 			}
 		}
