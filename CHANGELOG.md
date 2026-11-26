@@ -31,6 +31,7 @@ Changelog for NeoFS Node
 - Storage and Inner Ring nodes sent a 1e-8 GAS FS-chain notary deposit transaction every epoch when the existing deposit was already sufficient (#4356)
 - Policer recreated wrong EC parts when restoring an EC rule from another EC rule (#4328)
 - SN client cache repeatedly dialed unreachable peers without backoff, stalling policer and other callers (#4336)
+- V2-split PUT bypassed parent-attribute eACL rules when the parent header could not be resolved (#4374)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)
