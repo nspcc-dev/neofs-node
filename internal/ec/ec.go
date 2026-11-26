@@ -27,6 +27,17 @@ var (
 	zeroHashStr = hex.EncodeToString(zeroHash[:])
 )
 
+// PartLen returns the length of a single erasure-coded part of data of the
+// given length. All parts are padded to the same length, so this is a ceiling
+// division that must not overflow for large data lengths.
+func PartLen(dataLen uint64, dataPartNum uint32) uint64 {
+	partLen := dataLen / uint64(dataPartNum)
+	if dataLen%uint64(dataPartNum) != 0 {
+		partLen++
+	}
+	return partLen
+}
+
 // Encode encodes given data according to specified EC rule and returns coded
 // parts. First [Rule.DataPartNum] elements are data parts, other
 // [Rule.ParityPartNum] ones are parity blocks. The second returned value is

@@ -125,7 +125,8 @@ func checkECPart(part object.Object, rules []netmap.ECRule) error {
 	parentPldLen := parent.PayloadSize()
 	partPldLen := part.PayloadSize()
 
-	if exp := (parentPldLen + uint64(dataPartNum) - 1) / uint64(dataPartNum); exp != partPldLen {
+	exp := iec.PartLen(parentPldLen, dataPartNum)
+	if exp != partPldLen {
 		return fmt.Errorf("wrong part payload len: expected %d, got %d, parent %d", exp, partPldLen, parentPldLen)
 	}
 

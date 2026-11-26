@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -362,6 +363,42 @@ func TestFormatValidator_Validate_EC(t *testing.T) {
 
 	for i := range ecParts {
 		require.NoError(t, v.Validate(context.Background(), &ecParts[i], false, true))
+	}
+}
+
+func TestFormatValidator_Validate_EC_ParentPayloadSizeOverflow(t *testing.T) {
+	rules := []netmap.ECRule{netmap.NewECRule(3, 1)}
+	var policy netmap.PlacementPolicy
+	policy.SetECRules(rules)
+
+	var cnr container.Container
+	cnr.SetPlacementPolicy(policy)
+
+	cnrID := cidtest.ID()
+	cnrs := newMockContainers()
+	cnrs.setContainer(cnrID, cnr)
+
+	v := NewFormatValidator(nil, nil, cnrs)
+	creator := usertest.User()
+
+	emptyHash := sha256.Sum256(nil)
+	h := hex.EncodeToString(emptyHash[:])
+
+	for _, parentPldLen := range []uint64{math.MaxUint64, math.MaxUint64 - 1} {
+		t.Run(fmt.Sprint(parentPldLen), func(t *testing.T) {
+			var parent object.Object
+			parent.SetContainerID(cnrID)
+			parent.SetOwner(creator.UserID())
+			parent.SetPayloadSize(parentPldLen)
+			encodeHashes(t, &parent, creator, rules, 0, []string{h, h, h, h})
+
+			part, err := iec.FormObjectForECPart(creator, parent, nil, iec.PartInfo{RuleIndex: 0, Index: 0})
+			require.NoError(t, err)
+			require.Zero(t, part.PayloadSize())
+
+			err = v.Validate(context.Background(), &part, false, true)
+			require.EqualError(t, err, fmt.Sprintf("invalid regular EC part object: wrong part payload len: expected %d, got 0, parent %d", uint64(6148914691236517205), parentPldLen))
+		})
 	}
 }
 

@@ -9,6 +9,7 @@ Changelog for NeoFS Node
 - Support for container policies with limited number of additional nodes (#4269, #4302)
 
 ### Fixed
+- EC part with empty payload was accepted for a parent declaring a payload size close to 2^64 bytes (#4327)
 - Shard object counters, payload size, and container size metrics drifted after reviving an object (#4309)
 - Shard object counters lost the objects of removed containers on restart and went below the real values as GC deleted them (#4335)
 - Incorrect eACL `NOT_PRESENT` matching for SEARCH and DELETE (#4302)

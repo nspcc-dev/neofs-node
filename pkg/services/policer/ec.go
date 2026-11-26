@@ -251,7 +251,7 @@ headNextPart:
 					}
 
 					parentHdr = *ph
-					partLen = (parentHdr.PayloadSize() + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
+					partLen = iec.PartLen(parentHdr.PayloadSize(), uint32(rule.DataPartNum))
 				}
 
 				if got := hdr.PayloadSize(); got != partLen {
@@ -325,7 +325,7 @@ headNextPart:
 		}
 
 		parentHdr = *hdr
-		partLen = (parentHdr.PayloadSize() + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
+		partLen = iec.PartLen(parentHdr.PayloadSize(), uint32(rule.DataPartNum))
 	}
 
 	buf := make([]byte, int(partLen)*totalParts)
@@ -392,7 +392,7 @@ func (p *Policer) fetchObjectFromECRule(ctx context.Context, buf []byte, nodes [
 		cnr          = parentHeader.GetContainerID()
 		parentID     = parentHeader.GetID()
 		rule         = ecRules[ruleIdx]
-		partLen      = (parentHeader.PayloadSize() + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
+		partLen      = iec.PartLen(parentHeader.PayloadSize(), uint32(rule.DataPartNum))
 		totalParts   = int(rule.DataPartNum + rule.ParityPartNum)
 		requiredNum  = int(rule.DataPartNum)
 		missingParts []int

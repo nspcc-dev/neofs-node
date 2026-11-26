@@ -1078,7 +1078,7 @@ func (s *Service) copyECObjectRangeByParts(ctx context.Context, dst ChunkWriter,
 		return 0, nil
 	}
 	totalParts := int(rule.DataPartNum + rule.ParityPartNum)
-	fullPartLen := (pldLen + uint64(rule.DataPartNum) - 1) / uint64(rule.DataPartNum)
+	fullPartLen := iec.PartLen(pldLen, uint32(rule.DataPartNum))
 
 	// Mark ranges of EC parts.
 	var firstPartIdx, lastPartIdx int

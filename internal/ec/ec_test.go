@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/klauspost/reedsolomon"
@@ -20,6 +21,24 @@ func TestRule_String(t *testing.T) {
 		ParityPartNum: 23,
 	}
 	require.Equal(t, "12/23", r.String())
+}
+
+func TestPartLen(t *testing.T) {
+	for _, tc := range []struct {
+		dataLen     uint64
+		dataPartNum uint32
+		expected    uint64
+	}{
+		{dataLen: 0, dataPartNum: 3, expected: 0},
+		{dataLen: 1, dataPartNum: 3, expected: 1},
+		{dataLen: 3, dataPartNum: 3, expected: 1},
+		{dataLen: 4, dataPartNum: 3, expected: 2},
+		{dataLen: math.MaxUint64, dataPartNum: 1, expected: math.MaxUint64},
+		{dataLen: math.MaxUint64, dataPartNum: 3, expected: 6148914691236517205},
+		{dataLen: math.MaxUint64, dataPartNum: 64, expected: 288230376151711744},
+	} {
+		require.Equal(t, tc.expected, iec.PartLen(tc.dataLen, tc.dataPartNum))
+	}
 }
 
 func testEncode(t *testing.T, rule iec.Rule, data []byte) {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"hash"
 
+	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/internal"
 	"github.com/nspcc-dev/neofs-sdk-go/checksum"
@@ -178,7 +179,7 @@ func (t *validatingTarget) checkQuotaLimits(obj *object.Object, written uint64) 
 			if t.unpreparedObject {
 				for i := range t.cachedECRules {
 					dataPartNum := uint64(t.cachedECRules[i].DataPartNum())
-					partLen := (written + dataPartNum - 1) / dataPartNum
+					partLen := iec.PartLen(written, t.cachedECRules[i].DataPartNum())
 					needed += (dataPartNum + uint64(t.cachedECRules[i].ParityPartNum())) * partLen
 				}
 			}
