@@ -90,6 +90,7 @@ func TestMetaDataContract_Netmap(t *testing.T) {
 			Nodes: nodes,
 		})
 	}
+	newPlacement.Vectors[3].MinECParts = 2
 	newPlacementI, err := newPlacement.ToStackItem()
 	require.NoError(t, err)
 
@@ -98,6 +99,29 @@ func TestMetaDataContract_Netmap(t *testing.T) {
 	it, err := stackitem.Deserialize(val)
 	require.NoError(t, err)
 	requirePlacementsEqual(t, newPlacementI, it)
+
+	var decoded meta.Placement
+	require.NoError(t, decoded.FromStackItem(it))
+	require.Equal(t, uint8(2), decoded.Vectors[3].MinECParts)
+	require.Zero(t, decoded.Vectors[4].MinECParts)
+}
+
+func TestPlacementVectorFromStackItem(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		tail []stackitem.Item
+		want string
+	}{
+		{name: "invalid minimum type", tail: []stackitem.Item{stackitem.Null{}}, want: "third field is not a uint8"},
+		{name: "minimum exceeds total", tail: []stackitem.Item{stackitem.Make(4)}, want: "EC minimum 4 exceeds REP 3"},
+		{name: "extra field", tail: []stackitem.Item{stackitem.Make(2), stackitem.Make(0)}, want: "2 or 3 expected; 4 given"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fields := []stackitem.Item{stackitem.Make(3), stackitem.NewArray(nil)}
+			var vector meta.PlacementVector
+			require.ErrorContains(t, vector.FromStackItem(stackitem.NewArray(append(fields, tc.tail...))), tc.want)
+		})
+	}
 }
 
 func requirePlacementsEqual(t *testing.T, a, b stackitem.Item) {
@@ -112,6 +136,7 @@ func requirePlacementsEqual(t *testing.T, a, b stackitem.Item) {
 
 	vectors1 := p1[1].Value().([]stackitem.Item)
 	vectors2 := p2[1].Value().([]stackitem.Item)
+	require.Len(t, vectors2, len(vectors1))
 
 	for i := range vectors1 {
 		v1 := vectors1[i].Value().([]stackitem.Item)
@@ -124,9 +149,17 @@ func requirePlacementsEqual(t *testing.T, a, b stackitem.Item) {
 		require.NoError(t, err)
 
 		require.Equal(t, r1.Uint64(), r2.Uint64())
+		if len(v1) == 3 {
+			m1, err := v1[2].TryInteger()
+			require.NoError(t, err)
+			m2, err := v2[2].TryInteger()
+			require.NoError(t, err)
+			require.Equal(t, m1.Uint64(), m2.Uint64())
+		}
 
 		n1 := v1[1].Value().([]stackitem.Item)
 		n2 := v2[1].Value().([]stackitem.Item)
+		require.Len(t, n2, len(n1))
 
 		for j := range n1 {
 			node1, err := n1[j].TryBytes()
@@ -186,6 +219,111 @@ func TestMetaDataContract_Objects(t *testing.T) {
 		metaCommitteeI.Invoke(t, stackitem.Null{}, "registerMetaContainer", cID[:])
 		val := metaCommitteeI.Chain.GetStorageItem(meta.MetaDataContractID, append([]byte{metaContainersPrefix}, cID[:]...))
 		require.Equal(t, []byte{}, []byte(val))
+
+		t.Run("EC signature threshold", func(t *testing.T) {
+			cID := cidtest.ID()
+			metaCommitteeI.Invoke(t, stackitem.Null{}, "registerMetaContainer", cID[:])
+			vector := placement.Vectors[0]
+			vector.REP = 3
+			vector.MinECParts = 2
+			updateContainerList(t, metaCommitteeI, cID, meta.Placement{Vectors: []meta.PlacementVector{vector}})
+
+			for _, tc := range []struct {
+				name      string
+				count     int
+				duplicate bool
+				wantError string
+			}{
+				{name: "below minimum", count: 1, wantError: "outside [2, 3]"},
+				{name: "at minimum", count: 2},
+				{name: "all parts", count: 3},
+				{name: "above total", count: 4, wantError: "outside [2, 3]"},
+				{name: "duplicate at minimum", count: 2, duplicate: true, wantError: "is duplicated"},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					signedPlacement := meta.Placement{Vectors: []meta.PlacementVector{{Nodes: vector.Nodes[:tc.count]}}}
+					s := nodesMultiSigner(metaCommitteeI.Hash, cID, signedPlacement, nodes).(signer)
+					if tc.duplicate {
+						s.placement.Vectors[0].Nodes = keys.PublicKeys{vector.Nodes[0], vector.Nodes[0]}
+						s.overrideSignatureIndex = 0
+					}
+					oID := oidtest.ID()
+					rawMeta, err := stackitem.Serialize(testMeta(cID[:], oID[:]))
+					require.NoError(t, err)
+					if tc.wantError != "" {
+						verificationFailWithBadSigner(t, metaCommitteeI, s, tc.wantError, "submitObjectPut", rawMeta)
+						return
+					}
+					invokeWithCustomSigner(t, metaCommitteeI, s, stackitem.Null{}, "submitObjectPut", rawMeta)
+				})
+			}
+		})
+
+		t.Run("initial EC placement", func(t *testing.T) {
+			for _, tc := range []struct {
+				name        string
+				maxReplicas uint32
+				counts      [3]int // enabled EC, disabled EC, REP
+				wantError   string
+			}{
+				{name: "enabled EC requires its minimum", counts: [3]int{2, 0, 1}},
+				{name: "enabled EC cannot be skipped without global limit", counts: [3]int{0, 0, 1}, wantError: "outside [2, 3]"},
+				{name: "EC counts once toward global limit", maxReplicas: 2, counts: [3]int{2, 0, 1}},
+				{name: "EC alone does not meet global limit of two", maxReplicas: 2, counts: [3]int{3, 0, 0}, wantError: "only 1 were confirmed"},
+				{name: "EC can be skipped with global limit", maxReplicas: 1, counts: [3]int{0, 0, 1}},
+				{name: "partial EC does not meet global limit", maxReplicas: 1, counts: [3]int{1, 0, 1}, wantError: "outside [2, 3]"},
+				{name: "disabled EC cannot count toward global limit", maxReplicas: 1, counts: [3]int{0, 1, 0}, wantError: "exceeds REP"},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					cID := cidtest.ID()
+					metaCommitteeI.Invoke(t, stackitem.Null{}, "registerMetaContainer", cID[:])
+					p := meta.Placement{MaxReplicas: tc.maxReplicas, Vectors: []meta.PlacementVector{
+						{REP: 3, MinECParts: 2, Nodes: placement.Vectors[0].Nodes},
+						{Nodes: placement.Vectors[1].Nodes},
+						{REP: 1, Nodes: placement.Vectors[2].Nodes},
+					}}
+					updateContainerList(t, metaCommitteeI, cID, p)
+					for i, count := range tc.counts {
+						p.Vectors[i].Nodes = p.Vectors[i].Nodes[:count]
+					}
+					s := nodesMultiSigner(metaCommitteeI.Hash, cID, p, nodes)
+					oID := oidtest.ID()
+					rawMeta, err := stackitem.Serialize(testMeta(cID[:], oID[:]))
+					require.NoError(t, err)
+					if tc.wantError != "" {
+						verificationFailWithBadSigner(t, metaCommitteeI, s, tc.wantError, "submitObjectPut", rawMeta)
+					} else {
+						invokeWithCustomSigner(t, metaCommitteeI, s, stackitem.Null{}, "submitObjectPut", rawMeta)
+					}
+				})
+			}
+		})
+
+		t.Run("EC 12/4 with MINPARTS 14", func(t *testing.T) {
+			cID := cidtest.ID()
+			metaCommitteeI.Invoke(t, stackitem.Null{}, "registerMetaContainer", cID[:])
+			var ecKeys []*keys.PrivateKey
+			vector := meta.PlacementVector{REP: 16, MinECParts: 14}
+			for range vector.REP {
+				k, err := keys.NewPrivateKey()
+				require.NoError(t, err)
+				ecKeys = append(ecKeys, k)
+				vector.Nodes = append(vector.Nodes, k.PublicKey())
+			}
+			sort.Sort(vector.Nodes)
+			updateContainerList(t, metaCommitteeI, cID, meta.Placement{Vectors: []meta.PlacementVector{vector}})
+
+			oID := oidtest.ID()
+			rawMeta, err := stackitem.Serialize(testMeta(cID[:], oID[:]))
+			require.NoError(t, err)
+			vector.Nodes = vector.Nodes[:vector.MinECParts]
+			snSigner := nodesMultiSigner(metaCommitteeI.Hash, cID, meta.Placement{Vectors: []meta.PlacementVector{vector}}, ecKeys)
+			tx := metaCommitteeI.WithSigners(snSigner).PrepareInvoke(t, "submitObjectPut", rawMeta)
+			decoded, err := transaction.NewTransactionFromBytes(tx.Bytes())
+			require.NoError(t, err)
+			metaCommitteeI.AddNewBlock(t, decoded)
+			metaCommitteeI.CheckHalt(t, decoded.Hash(), stackitem.Null{})
+		})
 
 		t.Run("not enough signatures", func(t *testing.T) {
 			m := testMeta(cID[:], oID[:])

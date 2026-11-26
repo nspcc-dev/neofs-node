@@ -11,14 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
-
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oidtest "github.com/nspcc-dev/neofs-sdk-go/object/id/test"
+	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -57,14 +58,106 @@ func TestMinECPartNum(t *testing.T) {
 	}{
 		{name: "configured minimum", want: 3},
 		{name: "missing rule", ruleIdx: 1},
-		{name: "strict metadata requires all parts", metaAttr: "strict"},
-		{name: "optimistic metadata requires all parts", metaAttr: "optimistic"},
+		{name: "strict metadata honors minimum", metaAttr: "strict", want: 3},
+		{name: "optimistic metadata honors minimum", metaAttr: "optimistic", want: 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			target := distributedTarget{ecMinPartNums: []uint32{3}, metainfoConsistencyAttr: tc.metaAttr}
 			require.Equal(t, tc.want, target.minECPartNum(tc.ruleIdx))
 		})
 	}
+}
+
+func TestMetadataSignatures(t *testing.T) {
+	for _, tc := range []struct {
+		stored int
+		want   int
+	}{
+		{stored: 13, want: 13},
+		{stored: 14, want: 14},
+		{stored: 15, want: 14},
+		{stored: 16, want: 14},
+	} {
+		t.Run(fmt.Sprintf("%d stored parts", tc.stored), func(t *testing.T) {
+			collected := [][]meta.IndexedSignature{
+				{{Index: 1}, {Index: 3}}, // REP vector
+				make([]meta.IndexedSignature, tc.stored),
+				{{Index: 2}, {Index: 4}, {Index: 7}}, // EC without a minimum
+			}
+			for i := range collected[1] {
+				collected[1][i].Index = uint8(i)
+			}
+			target := distributedTarget{
+				containerNodes: mockContainerNodes{repCounts: []uint{2}},
+				ecMinPartNums:  []uint32{14, 0},
+				metaCollection: &metaCollection{signatures: collected},
+			}
+			target.metaCollection.signaturesMtx.RLock()
+			defer target.metaCollection.signaturesMtx.RUnlock()
+			got := target.metadataSignatures()
+			require.Equal(t, collected[0], got[0])
+			require.Equal(t, collected[1][:tc.want], got[1])
+			require.Equal(t, collected[2], got[2])
+			require.Len(t, collected[1], tc.stored)
+		})
+	}
+}
+
+func TestInitialPlacementDiscardsSignaturesFromFailedECRule(t *testing.T) {
+	rule := iec.Rule{DataPartNum: 2, ParityPartNum: 1}
+	rules := []iec.Rule{rule, rule}
+	signer := usertest.User()
+	obj := *object.New(cid.ID{}, signer.ID)
+	obj.SetPayload([]byte("initial EC placement"))
+	parts, _, err := iec.Encode(rule, obj.Payload())
+	require.NoError(t, err)
+
+	nodeLists := allocNodes([]uint{3, 3})
+	var initial netmap.InitialPlacementPolicy
+	initial.SetMaxReplicas(1)
+	collected := &metaCollection{signatures: make([][]meta.IndexedSignature, len(rules))}
+	var collectedCounts [2]int
+	firstStored := make(chan struct{})
+	target := distributedTarget{
+		obj:                     &obj,
+		containerNodes:          mockContainerNodes{sorted: nodeLists, ecRules: rules},
+		ecPart:                  iec.PartInfo{RuleIndex: -1},
+		encodedECParts:          [][][]byte{parts, parts},
+		ecMinPartNums:           []uint32{2, 2},
+		initialPolicy:           &initial,
+		sessionSigner:           signer.RFC6979,
+		metaCollection:          collected,
+		postPlacementReplicator: mockPostPlacementReplicator{},
+		placementIterator:       placementIterator{log: zaptest.NewLogger(t), neoFSNet: testNetwork{}},
+	}
+	// Emulate signature collection from successful remote writes without
+	// submitting a transaction. The first rule can only store one part.
+	target.relay = func(node nodeDesc) error {
+		i := node.placementVector
+		idx := slices.IndexFunc(nodeLists[i], func(n netmap.NodeInfo) bool {
+			return bytes.Equal(n.PublicKey(), node.info.PublicKey())
+		})
+		if i == 0 && idx != 0 {
+			<-firstStored
+			return errors.New("node unavailable")
+		}
+		collected.signaturesMtx.Lock()
+		defer collected.signaturesMtx.Unlock()
+		collectedCounts[i]++
+		collected.signatures[i] = append(collected.signatures[i], meta.IndexedSignature{Index: uint8(idx)})
+		if i == 0 {
+			close(firstStored)
+		}
+		return nil
+	}
+
+	require.NoError(t, target.saveObject(obj, encodedObject{}))
+	require.Equal(t, [2]int{1, 3}, collectedCounts)
+	collected.signaturesMtx.RLock()
+	defer collected.signaturesMtx.RUnlock()
+	witness := target.metadataSignatures()
+	require.Empty(t, witness[0])
+	require.Len(t, witness[1], 2)
 }
 
 func TestECProgressResult(t *testing.T) {
@@ -80,6 +173,7 @@ func TestECProgressResult(t *testing.T) {
 		stopped    bool
 	}{
 		{name: "all parts", success: 16, minParts: 14},
+		{name: "minimum exceeded", success: 15, minParts: 14},
 		{name: "minimum met", success: 14, minParts: 14},
 		{name: "minimum not met", success: 13, minParts: 14, incomplete: true},
 		{name: "data parts only", success: 12, minParts: 14, incomplete: true},

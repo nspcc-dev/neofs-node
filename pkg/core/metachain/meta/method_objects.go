@@ -342,10 +342,20 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 		panic(fmt.Errorf("unexpected number of signature vectors: %d signatures, %d placement vectors found", len(sigVectors), len(placement.Vectors)))
 	}
 
-	var totalConfirmedSignatures uint32
+	var confirmedReplicas uint32
 	for i, sigVector := range sigVectors {
-		if int(placement.Vectors[i].REP) != len(sigVector) && placement.MaxReplicas == 0 {
-			panic(fmt.Errorf("number of signatures for %d vector differs REP: %d != %d", i, len(sigVector), placement.Vectors[i].REP))
+		vector := placement.Vectors[i]
+		if vector.MinECParts != 0 {
+			if placement.MaxReplicas != 0 && len(sigVector) == 0 {
+				continue // This EC rule was not needed to meet the global limit.
+			}
+			if len(sigVector) < int(vector.MinECParts) || len(sigVector) > int(vector.REP) {
+				panic(fmt.Errorf("number of signatures for %d EC vector is outside [%d, %d]: %d", i, vector.MinECParts, vector.REP, len(sigVector)))
+			}
+		} else if placement.MaxReplicas == 0 && len(sigVector) != int(vector.REP) {
+			panic(fmt.Errorf("number of signatures for %d vector differs REP: %d != %d", i, len(sigVector), vector.REP))
+		} else if placement.MaxReplicas != 0 && len(sigVector) > int(vector.REP) {
+			panic(fmt.Errorf("number of signatures for %d vector exceeds REP: %d > %d", i, len(sigVector), vector.REP))
 		}
 		for j, sigIndexed := range sigVector {
 			if int(sigIndexed.ind) >= len(placement.Vectors[i].Nodes) {
@@ -359,18 +369,17 @@ func (m *MetaData) verifyPlacementSignatures(ic *interop.Context, args []stackit
 			if !k.Verify(sigIndexed.sig, signedDataHash[:]) {
 				panic(fmt.Errorf("%d signature in %d vector invalid for %d node", j, i, sigIndexed.ind))
 			}
-			totalConfirmedSignatures++
-
-			// zero just checked node to reject signatures duplication, but for
-			// limited max replicas case duplications are not that important
-			if placement.MaxReplicas == 0 {
-				placement.Vectors[i].Nodes[int(sigIndexed.ind)] = nil
-			}
+			vector.Nodes[int(sigIndexed.ind)] = nil // Reject duplicate indices in this vector.
+		}
+		if vector.MinECParts != 0 {
+			confirmedReplicas++ // A complete EC placement counts once.
+		} else {
+			confirmedReplicas += uint32(len(sigVector))
 		}
 	}
 
-	if placement.MaxReplicas != 0 && totalConfirmedSignatures < placement.MaxReplicas {
-		panic(fmt.Errorf("max initial placement replicas: %d, only %d signatures were found", placement.MaxReplicas, totalConfirmedSignatures))
+	if confirmedReplicas < placement.MaxReplicas {
+		panic(fmt.Errorf("max initial placement replicas: %d, only %d were confirmed", placement.MaxReplicas, confirmedReplicas))
 	}
 
 	return stackitem.NewBool(true)

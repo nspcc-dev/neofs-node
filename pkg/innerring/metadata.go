@@ -1,7 +1,6 @@
 package innerring
 
 import (
-	"bytes"
 	"context"
 	"crypto/elliptic"
 	"errors"
@@ -93,26 +92,44 @@ func (nc *metadataNotaryClient) UpdateContainerPlacement(cID cid.ID, vectors [][
 		return nil
 	}
 
+	placement, err := buildContainerPlacement(vectors, policy)
+	if err != nil {
+		return fmt.Errorf("build meta container placement for %s: %w", cID, err)
+	}
+	return callMetaContractAndWait(act, nonce, "updateContainerList", cID[:], &placement)
+}
+
+func buildContainerPlacement(vectors [][]netmap.NodeInfo, policy netmap.PlacementPolicy) (meta.Placement, error) {
 	var (
 		placement meta.Placement
 		replicas  = replicas(policy)
 	)
-	if initial := policy.Initial(); initial != nil {
+	initial := policy.Initial()
+	if initial != nil {
 		placement.MaxReplicas = initial.MaxReplicas()
 	}
+	repRuleCount, ecRules := policy.NumberOfReplicas(), policy.ECRules()
 	for i, v := range vectors {
 		var cnrVector meta.PlacementVector
 		cnrVector.REP = uint8(replicas[i])
-
-		slices.SortFunc(v, func(a, b netmap.NodeInfo) int {
-			return bytes.Compare(a.PublicKey(), b.PublicKey())
-		})
+		if ecIdx := i - repRuleCount; ecIdx >= 0 && replicas[i] != 0 {
+			rule := ecRules[ecIdx]
+			// Initial limits enable or disable EC rules; the witness still
+			// needs signatures for the required number of parts.
+			cnrVector.REP = uint8(rule.DataPartNum() + rule.ParityPartNum())
+			cnrVector.MinECParts = uint8(rule.MinPartNum())
+			if placement.MaxReplicas != 0 && cnrVector.MinECParts == 0 {
+				// Mark this as an EC vector even when all parts are required,
+				// so it contributes one unit to MaxReplicas.
+				cnrVector.MinECParts = cnrVector.REP
+			}
+		}
 
 		kk := make(keys.PublicKeys, 0, len(v))
 		for _, n := range v {
 			k, err := keys.NewPublicKeyFromBytes(n.PublicKey(), elliptic.P256())
 			if err != nil {
-				return fmt.Errorf("could not parse public key for %s meta container placement: %w", cID, err)
+				return meta.Placement{}, fmt.Errorf("parse public key in placement vector %d: %w", i, err)
 			}
 			kk = append(kk, k)
 		}
@@ -123,11 +140,11 @@ func (nc *metadataNotaryClient) UpdateContainerPlacement(cID cid.ID, vectors [][
 		placement.Vectors = append(placement.Vectors, cnrVector)
 	}
 
-	return callMetaContractAndWait(act, nonce, "updateContainerList", cID[:], &placement)
+	return placement, nil
 }
 
 func replicas(policy netmap.PlacementPolicy) []uint32 {
-	if initial := policy.Initial(); initial != nil {
+	if initial := policy.Initial(); initial != nil && len(initial.ReplicaLimits()) != 0 {
 		return initial.ReplicaLimits()
 	}
 

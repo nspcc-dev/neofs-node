@@ -2,9 +2,11 @@ package putsvc
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
 	objectcore "github.com/nspcc-dev/neofs-node/pkg/core/object"
+	"github.com/nspcc-dev/neofs-node/pkg/services/meta"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
 	"go.uber.org/zap"
@@ -88,7 +90,7 @@ func (t *distributedTarget) submitMetaCollection(o object.Object) error {
 		t.metaSvc.NotifyObjectSuccess(objAcceptedCh, objCopy, h)
 	}
 
-	err := t.metaSvc.SubmitObjectPut(t.metaCollection.metaTransaction, t.metaCollection.signatures)
+	err := t.metaSvc.SubmitObjectPut(t.metaCollection.metaTransaction, t.metadataSignatures())
 	if err != nil {
 		if await {
 			t.metaSvc.UnsubscribeFromObject(o.Address())
@@ -108,4 +110,24 @@ func (t *distributedTarget) submitMetaCollection(o object.Object) error {
 	t.placementIterator.log.Debug("submitted object meta information", zap.Stringer("addr", addr))
 
 	return nil
+}
+
+// metadataSignatures selects only the required EC signatures for the witness.
+// Placement still attempts all parts; surplus signatures only increase script size.
+// The caller must hold the signatures lock.
+func (t *distributedTarget) metadataSignatures() [][]meta.IndexedSignature {
+	signatures := t.metaCollection.signatures
+	if len(t.ecMinPartNums) == 0 {
+		return signatures
+	}
+
+	signatures = slices.Clone(signatures)
+	repRuleCount := len(t.containerNodes.PrimaryCounts())
+	for i, minimum := range t.ecMinPartNums {
+		vector := repRuleCount + i
+		if minimum != 0 && len(signatures[vector]) > int(minimum) {
+			signatures[vector] = signatures[vector][:minimum]
+		}
+	}
+	return signatures
 }

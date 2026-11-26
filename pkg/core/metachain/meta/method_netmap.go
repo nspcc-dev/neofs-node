@@ -43,7 +43,15 @@ func (p Placement) ToSCParameter() (smartcontract.Parameter, error) {
 		}
 
 		scVector := smartcontract.NewParameter(smartcontract.ArrayType)
-		scVector.Value = []smartcontract.Parameter{scRep, scNodesField}
+		fields := []smartcontract.Parameter{scRep, scNodesField}
+		if v.MinECParts != 0 {
+			scMin, err := smartcontract.NewParameterFromValue(v.MinECParts)
+			if err != nil {
+				return smartcontract.Parameter{}, fmt.Errorf("converting EC minimum of %d vector: %w", i, err)
+			}
+			fields = append(fields, scMin)
+		}
+		scVector.Value = fields
 
 		scVectors = append(scVectors, scVector)
 	}
@@ -59,8 +67,9 @@ func (p Placement) ToSCParameter() (smartcontract.Parameter, error) {
 
 // PlacementVector is a single placement vector in NeoFS [Placement].
 type PlacementVector struct {
-	REP   uint8
-	Nodes keys.PublicKeys
+	REP        uint8
+	Nodes      keys.PublicKeys
+	MinECParts uint8 // zero preserves the default signature checks
 }
 
 func (p PlacementVector) ToStackItem() (stackitem.Item, error) {
@@ -69,10 +78,15 @@ func (p PlacementVector) ToStackItem() (stackitem.Item, error) {
 		nodes = append(nodes, stackitem.Make(node.Bytes()))
 	}
 
-	return stackitem.NewStruct([]stackitem.Item{
-		stackitem.Make(p.REP),
-		stackitem.NewArray(nodes),
-	}), nil
+	return stackitem.NewStruct(p.stackFields(stackitem.NewArray(nodes))), nil
+}
+
+func (p PlacementVector) stackFields(nodes stackitem.Item) []stackitem.Item {
+	fields := []stackitem.Item{stackitem.Make(p.REP), nodes}
+	if p.MinECParts != 0 {
+		fields = append(fields, stackitem.Make(p.MinECParts))
+	}
+	return fields
 }
 
 func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
@@ -80,8 +94,8 @@ func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
 	if !ok {
 		return errors.New("not an array")
 	}
-	if len(arr) != 2 {
-		return fmt.Errorf("unexpected number of fields: %d expected; %d given", 2, len(arr))
+	if len(arr) != 2 && len(arr) != 3 {
+		return fmt.Errorf("unexpected number of fields: 2 or 3 expected; %d given", len(arr))
 	}
 
 	rep, err := stackitem.ToUint8(arr[0])
@@ -89,6 +103,17 @@ func (p *PlacementVector) FromStackItem(it stackitem.Item) error {
 		return fmt.Errorf("first fields not an uint8: %w", err)
 	}
 	p.REP = rep
+	p.MinECParts = 0
+	if len(arr) == 3 {
+		minParts, err := stackitem.ToUint8(arr[2])
+		if err != nil {
+			return fmt.Errorf("third field is not a uint8: %w", err)
+		}
+		if minParts > rep {
+			return fmt.Errorf("EC minimum %d exceeds REP %d", minParts, rep)
+		}
+		p.MinECParts = minParts
+	}
 
 	p.Nodes = make(keys.PublicKeys, 0, len(arr))
 	vectorRaw, ok := arr[1].Value().([]stackitem.Item)
@@ -122,10 +147,7 @@ func (p Placement) ToStackItem() (stackitem.Item, error) {
 			keysRaw = append(keysRaw, v.Nodes[i].Bytes())
 		}
 
-		vectors = append(vectors, stackitem.NewArray([]stackitem.Item{
-			stackitem.Make(v.REP),
-			stackitem.Make(keysRaw),
-		}))
+		vectors = append(vectors, stackitem.NewArray(v.stackFields(stackitem.Make(keysRaw))))
 	}
 
 	return stackitem.NewArray([]stackitem.Item{maxReplicas, stackitem.NewArray(vectors)}), nil
