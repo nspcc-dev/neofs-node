@@ -414,6 +414,188 @@ func TestServer_Get_Remote(t *testing.T) {
 			}))
 		})
 	})
+
+	t.Run("EC transport", func(t *testing.T) {
+		rule := iec.Rule{DataPartNum: 4, ParityPartNum: 2}
+		nodes := make([]netmap.NodeInfo, rule.DataPartNum+rule.ParityPartNum)
+		for i := range nodes {
+			nodes[i].SetPublicKey([]byte("ec_pub_" + strconv.Itoa(i)))
+			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9100+i))
+		}
+
+		newECPartConn := func(t *testing.T, partObj object.Object) clientcore.MultiAddressClient {
+			t.Helper()
+			partMsg := partObj.ProtoMessage()
+			return newRawServiceOnlyConn(t, &grpc.ServiceDesc{
+				ServiceName: protoobject.ObjectService_ServiceDesc.ServiceName,
+				Streams: []grpc.StreamDesc{
+					{
+						StreamName: "Get",
+						Handler: func(_ any, stream grpc.ServerStream) error {
+							var req protoobject.GetRequest
+							if err := stream.RecvMsg(&req); err != nil {
+								return err
+							}
+							if rng := req.GetBody().GetRange(); rng != nil {
+								off := rng.GetOffset()
+								ln := rng.GetLength()
+								pld := partObj.Payload()
+								if ln == 0 {
+									pld = pld[off:]
+								} else {
+									pld = pld[off : off+ln]
+								}
+								return stream.SendMsg(&protoobject.GetResponse{
+									Body: &protoobject.GetResponse_Body{
+										ObjectPart: &protoobject.GetResponse_Body_Chunk{
+											Chunk: pld,
+										},
+									},
+								})
+							}
+							if err := stream.SendMsg(&protoobject.GetResponse{
+								Body: &protoobject.GetResponse_Body{
+									ObjectPart: &protoobject.GetResponse_Body_Init_{
+										Init: &protoobject.GetResponse_Body_Init{
+											ObjectId:  partMsg.ObjectId,
+											Signature: partMsg.Signature,
+											Header:    partMsg.Header,
+										},
+									},
+								},
+							}); err != nil {
+								return err
+							}
+							if len(partObj.Payload()) > 0 {
+								return stream.SendMsg(&protoobject.GetResponse{
+									Body: &protoobject.GetResponse_Body{
+										ObjectPart: &protoobject.GetResponse_Body_Chunk{
+											Chunk: partObj.Payload(),
+										},
+									},
+								})
+							}
+							return nil
+						},
+					},
+				},
+			})
+		}
+
+		assertECGet := func(t *testing.T, payload []byte, localPart0 bool) {
+			t.Helper()
+
+			parentObj := *object.New(cnr, signer.ID)
+			parentObj.SetPayloadSize(uint64(len(payload)))
+			parentObj.SetPayload(payload)
+			require.NoError(t, parentObj.SetVerificationFields(signer))
+
+			parts, _, err := iec.Encode(rule, payload)
+			require.NoError(t, err)
+
+			ecStorage := newSimpleStorage(t, fsChain)
+			mockConns := newMockConnections()
+			for i := range parts {
+				partObj, err := iec.FormObjectForECPart(signer, *parentObj.CutPayload(), parts[i], iec.PartInfo{Index: i})
+				require.NoError(t, err)
+				if localPart0 && i == 0 {
+					require.NoError(t, ecStorage.Put(context.Background(), &partObj, nil))
+				} else {
+					mockConns.setConn(nodes[i], newECPartConn(t, partObj))
+				}
+			}
+
+			var handlerFSChain mockHandlerFSChain
+			handlerFSChain.ecRules = []iec.Rule{rule}
+			handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
+			if localPart0 {
+				handlerFSChain.localPub = nodes[0].PublicKey()
+			} else {
+				handlerFSChain.localPub = nodes[len(nodes)-1].PublicKey()
+			}
+
+			handler := getsvc.New(&handlerFSChain,
+				getsvc.WithLocalStorageEngine(ecStorage),
+				getsvc.WithClientConstructor(mockConns),
+				getsvc.WithKeyStorage(keyStorage),
+			)
+			srv := New(getOnlyHandler{svc: handler}, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+
+			req := newUnsignedLocalGetRequest(version.Current(), parentObj.Address())
+			req.MetaHeader.Ttl = 2
+			signGetRequest(t, req, signer)
+
+			resps := collectGetResponses(t, srv, req)
+			require.NotEmpty(t, resps)
+
+			in := resps[0].GetBody().GetInit()
+			require.NotNil(t, in)
+			var restoredHdr object.Object
+			require.NoError(t, restoredHdr.FromProtoMessage(&protoobject.Object{
+				ObjectId:  in.ObjectId,
+				Signature: in.Signature,
+				Header:    in.Header,
+			}))
+			require.Equal(t, *parentObj.CutPayload(), restoredHdr)
+
+			var gotPayload []byte
+			for _, resp := range resps[1:] {
+				gotPayload = append(gotPayload, resp.GetBody().GetChunk()...)
+			}
+			require.Equal(t, payload, gotPayload)
+		}
+
+		t.Run("remote small padded payload", func(t *testing.T) {
+			assertECGet(t, []byte{1, 2, 3, 4, 5}, false)
+		})
+
+		t.Run("remote empty payload", func(t *testing.T) {
+			assertECGet(t, nil, false)
+		})
+
+		t.Run("local part#0 and remote parts", func(t *testing.T) {
+			assertECGet(t, []byte{1, 2, 3, 4, 5}, true)
+		})
+
+		t.Run("remote invalid part payload length", func(t *testing.T) {
+			payload := []byte{1, 2, 3, 4, 5}
+			parentObj := *object.New(cnr, signer.ID)
+			parentObj.SetPayloadSize(uint64(len(payload)))
+			parentObj.SetPayload(payload)
+			require.NoError(t, parentObj.SetVerificationFields(signer))
+
+			// Corrupt part#0 payload length: 1 byte instead of ceil(5/4) = 2.
+			badPart, err := iec.FormObjectForECPart(signer, *parentObj.CutPayload(), []byte{1}, iec.PartInfo{Index: 0})
+			require.NoError(t, err)
+
+			mockConns := newMockConnections()
+			mockConns.setConn(nodes[0], newECPartConn(t, badPart))
+
+			var handlerFSChain mockHandlerFSChain
+			handlerFSChain.ecRules = []iec.Rule{rule}
+			handlerFSChain.nodeLists = [][]netmap.NodeInfo{nodes}
+			handlerFSChain.localPub = nodes[len(nodes)-1].PublicKey()
+
+			handler := getsvc.New(&handlerFSChain,
+				getsvc.WithLocalStorageEngine(newSimpleStorage(t, fsChain)),
+				getsvc.WithClientConstructor(mockConns),
+				getsvc.WithKeyStorage(keyStorage),
+			)
+			srv := New(getOnlyHandler{svc: handler}, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, reqInfoExt, nil, zap.NewNop())
+
+			req := newUnsignedLocalGetRequest(version.Current(), parentObj.Address())
+			req.MetaHeader.Ttl = 2
+			signGetRequest(t, req, signer)
+
+			stream, err := callGet(t, srv, req)
+			require.NoError(t, err)
+			resp, err := stream.Recv()
+			require.NoError(t, err)
+			require.Nil(t, resp.GetBody().GetInit())
+			require.NotZero(t, resp.GetMetaHeader().GetStatus().GetCode())
+			require.Contains(t, resp.GetMetaHeader().GetStatus().GetMessage(), "invalid part payload length")
+		})
+	})
 }
 
 type getOnlyHandler struct {

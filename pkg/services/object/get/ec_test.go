@@ -8,11 +8,15 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/iotest"
 
 	iec "github.com/nspcc-dev/neofs-node/internal/ec"
 	"github.com/nspcc-dev/neofs-node/internal/testutil"
+	clientcore "github.com/nspcc-dev/neofs-node/pkg/core/client"
+	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/engine"
 	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	"github.com/nspcc-dev/neofs-sdk-go/container"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
@@ -682,4 +686,390 @@ func (x *testECServiceConn) Head(ctx context.Context, node netmap.NodeInfo, pk e
 	}
 
 	return *x.parentHdr.CutPayload(), nil
+}
+
+type noopClientConstructor struct{}
+
+func (noopClientConstructor) Get(context.Context, netmap.NodeInfo) (clientcore.MultiAddressClient, error) {
+	return nil, nil
+}
+
+type mockECTransport struct {
+	parts        [][]byte
+	parentPldLen uint64
+	partPldLen   uint64
+
+	part0Err        error
+	part0ErrAfter   bool
+	part0NoHdr      bool
+	part0PartialLen uint64
+
+	beforePart0Payload func()
+	onRangeStart       func(partIdx int, off, ln uint64)
+	onRangeExit        func(partIdx int)
+
+	mtx        sync.Mutex
+	hdrWritten bool
+	written    []byte
+	writeOrder []int
+	rangeCalls map[int][][2]uint64
+}
+
+func newMockECTransport(parts [][]byte, parentPldLen uint64) *mockECTransport {
+	var partLen uint64
+	if len(parts) > 0 {
+		partLen = uint64(len(parts[0]))
+	}
+	return &mockECTransport{
+		parts:        parts,
+		parentPldLen: parentPldLen,
+		partPldLen:   partLen,
+		rangeCalls:   make(map[int][][2]uint64),
+	}
+}
+
+func (m *mockECTransport) copyFirstPart(partInfo iec.PartInfo, interceptLens func(uint64, uint64) error) (bool, uint64, error) {
+	if m.part0NoHdr {
+		return false, 0, nil
+	}
+	if m.part0Err != nil && !m.part0ErrAfter {
+		return false, 0, m.part0Err
+	}
+
+	partLen := m.partPldLen
+	if err := interceptLens(partLen, m.parentPldLen); err != nil {
+		return false, 0, err
+	}
+
+	if m.beforePart0Payload != nil {
+		m.beforePart0Payload()
+	}
+
+	if m.part0Err != nil && m.part0ErrAfter {
+		return false, 0, m.part0Err
+	}
+
+	var data []byte
+	if partInfo.Index < len(m.parts) {
+		data = m.parts[partInfo.Index]
+	}
+	if m.part0PartialLen > 0 && m.part0PartialLen < uint64(len(data)) {
+		data = data[:m.part0PartialLen]
+	}
+
+	m.mtx.Lock()
+	m.hdrWritten = true
+	m.written = append(m.written, data...)
+	m.writeOrder = append(m.writeOrder, partInfo.Index)
+	m.mtx.Unlock()
+
+	return true, uint64(len(data)), nil
+}
+
+func (m *mockECTransport) CopyLocalECPartParentHeaderAndPayload(_ context.Context, _ *engine.StorageEngine, partInfo iec.PartInfo, interceptLens func(uint64, uint64) error) (bool, uint64, error) {
+	return m.copyFirstPart(partInfo, interceptLens)
+}
+
+func (m *mockECTransport) CopyRemoteECPartParentHeaderAndPayload(_ context.Context, _ clientcore.MultiAddressClient, partInfo iec.PartInfo, interceptLens func(uint64, uint64) error) (bool, uint64, error) {
+	return m.copyFirstPart(partInfo, interceptLens)
+}
+
+func (m *mockECTransport) copyPartRange(ctx context.Context, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	if m.onRangeStart != nil {
+		m.onRangeStart(partInfo.Index, off, ln)
+	}
+	if m.onRangeExit != nil {
+		defer m.onRangeExit(partInfo.Index)
+	}
+
+	m.mtx.Lock()
+	m.rangeCalls[partInfo.Index] = append(m.rangeCalls[partInfo.Index], [2]uint64{off, ln})
+	m.mtx.Unlock()
+
+	if controlCh != nil {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case abort := <-controlCh:
+			if abort {
+				return 0, ErrAborted
+			}
+		}
+	}
+
+	if partInfo.Index == 0 && m.part0PartialLen > 0 {
+		// Simulate partial failure where fallback nodes also have no remaining bytes.
+		return 0, nil
+	}
+
+	part := m.parts[partInfo.Index]
+	chunk := part[off : off+ln]
+
+	m.mtx.Lock()
+	m.written = append(m.written, chunk...)
+	m.writeOrder = append(m.writeOrder, partInfo.Index)
+	m.mtx.Unlock()
+
+	return uint64(len(chunk)), nil
+}
+
+func (m *mockECTransport) CopyLocalECPartRange(ctx context.Context, _ *engine.StorageEngine, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	return m.copyPartRange(ctx, partInfo, off, ln, controlCh)
+}
+
+func (m *mockECTransport) CopyRemoteECPartRange(ctx context.Context, _ clientcore.MultiAddressClient, partInfo iec.PartInfo, off, ln uint64, controlCh <-chan bool) (uint64, error) {
+	return m.copyPartRange(ctx, partInfo, off, ln, controlCh)
+}
+
+func newStreamECService(t testing.TB, rule iec.Rule, localIdx int) (*Service, []netmap.NodeInfo) {
+	t.Helper()
+	nodeLists, _ := testNodeMatrix(t, []int{int(rule.DataPartNum + rule.ParityPartNum)})
+	nodes := nodeLists[0]
+
+	var localPub []byte
+	if localIdx >= 0 {
+		localPub = nodes[localIdx].PublicKey()
+	}
+
+	svc := New(&mockNeoFSNet{localPubKey: localPub},
+		WithLocalStorageEngine(nil),
+		WithClientConstructor(noopClientConstructor{}),
+	)
+
+	return svc, nodes
+}
+
+func TestStreamECObject(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("early release and gate ordering", func(t *testing.T) {
+		rule := iec.Rule{DataPartNum: 4, ParityPartNum: 2}
+		payload := testutil.RandByteSlice(100)
+		parts, _, err := iec.Encode(rule, payload)
+		require.NoError(t, err)
+
+		svc, nodes := newStreamECService(t, rule, -1)
+		tr := newMockECTransport(parts, uint64(len(payload)))
+
+		var started atomic.Int32
+		allStarted := make(chan struct{})
+		tr.onRangeStart = func(int, uint64, uint64) {
+			if started.Add(1) == int32(rule.DataPartNum-1) {
+				close(allStarted)
+			}
+		}
+		tr.beforePart0Payload = func() {
+			<-allStarted
+			// Secondary parts have started fetching, but none may write before part#0 finishes.
+			tr.mtx.Lock()
+			writtenLen := len(tr.written)
+			tr.mtx.Unlock()
+			require.Zero(t, writtenLen)
+		}
+
+		err = svc.streamECObject(ctx, tr, rule, 0, nodes)
+		require.NoError(t, err)
+		require.Equal(t, payload, tr.written)
+		require.Equal(t, []int{0, 1, 2, 3}, tr.writeOrder)
+	})
+
+	t.Run("local part#0 and remote secondary parts", func(t *testing.T) {
+		rule := iec.Rule{DataPartNum: 4, ParityPartNum: 2}
+		payload := testutil.RandByteSlice(37)
+		parts, _, err := iec.Encode(rule, payload)
+		require.NoError(t, err)
+
+		svc, nodes := newStreamECService(t, rule, 0)
+		tr := newMockECTransport(parts, uint64(len(payload)))
+
+		err = svc.streamECObject(ctx, tr, rule, 0, nodes)
+		require.NoError(t, err)
+		require.Equal(t, payload, tr.written)
+		require.Equal(t, []int{0, 1, 2, 3}, tr.writeOrder)
+	})
+
+	t.Run("small payloads with trailing padding", func(t *testing.T) {
+		for _, tc := range []struct {
+			name         string
+			rule         iec.Rule
+			payload      []byte
+			wantRangeLen map[int]uint64
+		}{
+			{
+				name:         "N=4 L=5",
+				rule:         iec.Rule{DataPartNum: 4, ParityPartNum: 2},
+				payload:      []byte{1, 2, 3, 4, 5},
+				wantRangeLen: map[int]uint64{1: 2, 2: 1},
+			},
+			{
+				name:         "N=4 L=6 last part padding only",
+				rule:         iec.Rule{DataPartNum: 4, ParityPartNum: 2},
+				payload:      []byte{1, 2, 3, 4, 5, 6},
+				wantRangeLen: map[int]uint64{1: 2, 2: 2},
+			},
+			{
+				name:         "N=3 L=1",
+				rule:         iec.Rule{DataPartNum: 3, ParityPartNum: 1},
+				payload:      []byte{42},
+				wantRangeLen: map[int]uint64{},
+			},
+			{
+				name:         "N=4 L=0 empty",
+				rule:         iec.Rule{DataPartNum: 4, ParityPartNum: 2},
+				payload:      nil,
+				wantRangeLen: map[int]uint64{},
+			},
+			{
+				name:         "N=1 L=5 single data part",
+				rule:         iec.Rule{DataPartNum: 1, ParityPartNum: 1},
+				payload:      []byte{1, 2, 3, 4, 5},
+				wantRangeLen: map[int]uint64{},
+			},
+			{
+				name:         "N=1 L=0 single data part empty",
+				rule:         iec.Rule{DataPartNum: 1, ParityPartNum: 1},
+				payload:      nil,
+				wantRangeLen: map[int]uint64{},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				parts, _, err := iec.Encode(tc.rule, tc.payload)
+				require.NoError(t, err)
+
+				svc, nodes := newStreamECService(t, tc.rule, -1)
+				tr := newMockECTransport(parts, uint64(len(tc.payload)))
+
+				err = svc.streamECObject(ctx, tr, tc.rule, 0, nodes)
+				require.NoError(t, err)
+				require.Equal(t, tc.payload, tr.written)
+
+				require.Len(t, tr.rangeCalls, len(tc.wantRangeLen))
+				for partIdx, wantLen := range tc.wantRangeLen {
+					require.Equal(t, [][2]uint64{{0, wantLen}}, tr.rangeCalls[partIdx])
+				}
+			})
+		}
+	})
+
+	t.Run("invalid part payload length", func(t *testing.T) {
+		for _, tc := range []struct {
+			name      string
+			rule      iec.Rule
+			partLen   uint64
+			parentLen uint64
+		}{
+			{name: "too small", rule: iec.Rule{DataPartNum: 4, ParityPartNum: 2}, partLen: 1, parentLen: 5},
+			{name: "zero part len", rule: iec.Rule{DataPartNum: 4, ParityPartNum: 2}, partLen: 0, parentLen: 5},
+			{name: "zero parent len", rule: iec.Rule{DataPartNum: 4, ParityPartNum: 2}, partLen: 2, parentLen: 0},
+			{name: "single data part mismatch", rule: iec.Rule{DataPartNum: 1, ParityPartNum: 1}, partLen: 3, parentLen: 5},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				svc, nodes := newStreamECService(t, tc.rule, -1)
+				tr := newMockECTransport(nil, tc.parentLen)
+				tr.partPldLen = tc.partLen
+
+				err := svc.streamECObject(ctx, tr, tc.rule, 0, nodes)
+				require.ErrorContains(t, err, "part#0:")
+				require.ErrorContains(t, err, "invalid part payload length")
+				require.False(t, tr.hdrWritten)
+				require.Empty(t, tr.written)
+				require.Empty(t, tr.rangeCalls)
+			})
+		}
+	})
+
+	t.Run("early returns join part goroutines", func(t *testing.T) {
+		rule := iec.Rule{DataPartNum: 4, ParityPartNum: 2}
+		payload := testutil.RandByteSlice(40)
+		parts, _, err := iec.Encode(rule, payload)
+		require.NoError(t, err)
+
+		for _, tc := range []struct {
+			name        string
+			setup       func(*mockECTransport)
+			waitForPart bool
+			assertErr   func(*testing.T, error)
+		}{
+			{
+				name: "part#0 ErrResponded",
+				setup: func(tr *mockECTransport) {
+					tr.part0Err = ErrResponded
+					tr.part0ErrAfter = true
+				},
+				waitForPart: true,
+				assertErr: func(t *testing.T, err error) {
+					require.NoError(t, err)
+				},
+			},
+			{
+				name: "part#0 error",
+				setup: func(tr *mockECTransport) {
+					tr.part0Err = errors.New("part#0 stream failure")
+					tr.part0ErrAfter = true
+				},
+				waitForPart: true,
+				assertErr: func(t *testing.T, err error) {
+					require.ErrorContains(t, err, "part#0: part#0 stream failure")
+				},
+			},
+			{
+				name: "part#0 header not copied",
+				setup: func(tr *mockECTransport) {
+					tr.part0NoHdr = true
+				},
+				assertErr: func(t *testing.T, err error) {
+					var partial partialObjectCopy
+					require.ErrorAs(t, err, &partial)
+					require.False(t, partial.copiedHeader)
+				},
+			},
+			{
+				name: "part#0 partial payload",
+				setup: func(tr *mockECTransport) {
+					tr.part0PartialLen = 4
+				},
+				waitForPart: true,
+				assertErr: func(t *testing.T, err error) {
+					var partial partialObjectCopy
+					require.ErrorAs(t, err, &partial)
+					require.True(t, partial.copiedHeader)
+					require.EqualValues(t, 4, partial.copiedPayloadLength)
+				},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				svc, nodes := newStreamECService(t, rule, -1)
+				tr := newMockECTransport(parts, uint64(len(payload)))
+				tc.setup(tr)
+
+				var active atomic.Int32
+				var started atomic.Int32
+				allStarted := make(chan struct{})
+				tr.onRangeStart = func(partIdx int, _, _ uint64) {
+					if partIdx == 0 {
+						return
+					}
+					active.Add(1)
+					if started.Add(1) == int32(rule.DataPartNum-1) {
+						close(allStarted)
+					}
+				}
+				tr.onRangeExit = func(partIdx int) {
+					if partIdx == 0 {
+						return
+					}
+					active.Add(-1)
+				}
+				if tc.waitForPart {
+					tr.beforePart0Payload = func() {
+						<-allStarted
+					}
+				}
+
+				err := svc.streamECObject(ctx, tr, rule, 0, nodes)
+				tc.assertErr(t, err)
+				require.Zero(t, active.Load())
+			})
+		}
+	})
 }
