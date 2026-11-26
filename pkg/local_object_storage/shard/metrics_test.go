@@ -465,25 +465,24 @@ func TestReviveCounters(t *testing.T) {
 	t.Run("two tombstones", func(t *testing.T) {
 		dir, sh, mm, obj, size := setup(t)
 
-		require.NoError(t, sh.Put(newTombstone(obj.GetID()), nil))
-		require.NoError(t, sh.Put(newTombstone(obj.GetID()), nil))
+		ts1 := newTombstone(obj.GetID())
+		ts2 := newTombstone(obj.GetID())
+		require.NoError(t, sh.Put(ts1, nil))
+		require.NoError(t, sh.Put(ts2, nil))
 
-		_, err := sh.ReviveObject(obj.Address())
+		rs, err := sh.ReviveObject(obj.Address())
 		require.NoError(t, err)
+		require.Equal(t, meta.ReviveStatusGraveyard, rs.StatusType())
+		require.ElementsMatch(t, []oid.Address{ts1.Address(), ts2.Address()}, rs.TombstoneAddresses())
 
-		mid := map[string]uint64{
-			phyObj:  2,
-			rootObj: 1,
-			tsObj:   1,
-			lockObj: 0,
-			linkObj: 0,
-			gcObj:   1,
+		exists, err := sh.Exists(obj.Address(), false)
+		require.NoError(t, err)
+		require.True(t, exists)
+		for _, ts := range []*object.Object{ts1, ts2} {
+			exists, err = sh.Exists(ts.Address(), false)
+			require.NoError(t, err)
+			require.False(t, exists)
 		}
-		check(t, mm, mid, 0)
-		sh, mm = checkRestarted(t, dir, sh, mid, 0)
-
-		_, err = sh.ReviveObject(obj.Address())
-		require.NoError(t, err)
 
 		check(t, mm, alive, size)
 		checkRestarted(t, dir, sh, alive, size)

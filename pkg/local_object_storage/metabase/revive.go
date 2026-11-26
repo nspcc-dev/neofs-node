@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/nspcc-dev/bbolt"
 	"github.com/nspcc-dev/neofs-node/pkg/local_object_storage/util/logicerr"
@@ -32,10 +33,9 @@ const (
 // ReviveStatus groups the resulting values of ReviveObject operation.
 // Contains the type of revival status and message for details.
 type ReviveStatus struct {
-	statusType reviveStatusType
-	message    string
-	// tombstoneAddr holds the address of the tombstone used to inhume the object (if any).
-	tombstoneAddr oid.Address
+	statusType     reviveStatusType
+	message        string
+	tombstoneAddrs []oid.Address
 }
 
 // Message returns message of status.
@@ -48,14 +48,19 @@ func (s *ReviveStatus) StatusType() reviveStatusType {
 	return s.statusType
 }
 
-// TombstoneAddress returns the tombstone address.
-func (s *ReviveStatus) TombstoneAddress() oid.Address {
-	return s.tombstoneAddr
+// TombstoneAddresses returns the addresses of tombstones removed during revival.
+func (s *ReviveStatus) TombstoneAddresses() []oid.Address {
+	return s.tombstoneAddrs
 }
 
-func (s *ReviveStatus) setStatusGraveyard(tomb string) {
+func (s *ReviveStatus) setStatusGraveyard(tombs []oid.Address) {
 	s.statusType = ReviveStatusGraveyard
-	s.message = fmt.Sprintf("successful revival from graveyard, tomb: %s", tomb)
+	s.tombstoneAddrs = tombs
+	addrs := make([]string, len(tombs))
+	for i := range tombs {
+		addrs[i] = tombs[i].EncodeToString()
+	}
+	s.message = fmt.Sprintf("successful revival from graveyard, tomb: %s", strings.Join(addrs, ", "))
 }
 
 func (s *ReviveStatus) setStatusGarbage() {
@@ -65,6 +70,7 @@ func (s *ReviveStatus) setStatusGarbage() {
 
 func (s *ReviveStatus) setStatusError(err error) {
 	s.statusType = ReviveStatusError
+	s.tombstoneAddrs = nil
 	s.message = fmt.Sprintf("didn't revive, err: %v", err)
 }
 
@@ -106,27 +112,26 @@ func (db *DB) ReviveObject(addr oid.Address) (res ReviveStatus, diff CountersDif
 			// object marked with GC mark
 			res.setStatusGarbage()
 		case statusTombstoned:
-			_, tombOID := associatedWithTypedObject(0, 0, metaCursor, addr.Object(), object.TypeTombstone)
-			if tombOID.IsZero() {
+			objID := addr.Object()
+			var tombIDs []oid.ID
+			for associateID := range iterAttrVal(metaCursor, object.AttributeAssociatedObject, objID[:]) {
+				if isObjectType(metaBucket.Cursor(), associateID, object.TypeTombstone) {
+					tombIDs = append(tombIDs, associateID)
+				}
+			}
+			if len(tombIDs) == 0 {
 				return errors.New("reported as deleted, but no tombstone found")
 			}
-			var tombAddress = oid.NewAddress(cnr, tombOID)
-			tombDiff, err := db.delete(metaCursor, cnr, tombOID)
-			if err != nil {
-				return err
-			}
-			diff.add(tombDiff)
-			res.setStatusGraveyard(tombAddress.EncodeToString())
-			res.tombstoneAddr = tombAddress
-			// The object stays deleted for as long as another tombstone
-			// references it, so the garbage mark and the counters it takes
-			// away must be kept until the last tombstone is removed.
-			if another, _ := associatedWithTypedObject(0, 0, metaCursor, addr.Object(), object.TypeTombstone); another {
-				if err := applyDiff(metaBucket, diff); err != nil {
-					return fmt.Errorf("failed to update counters: %w", err)
+			tombAddrs := make([]oid.Address, 0, len(tombIDs))
+			for _, tombOID := range tombIDs {
+				tombDiff, err := db.delete(metaCursor, cnr, tombOID)
+				if err != nil {
+					return err
 				}
-				return nil
+				diff.add(tombDiff)
+				tombAddrs = append(tombAddrs, oid.NewAddress(cnr, tombOID))
 			}
+			res.setStatusGraveyard(tombAddrs)
 		}
 		gcKey := mkGarbageKey(addr.Object())
 		if k, _ := metaCursor.Seek(gcKey); bytes.Equal(k, gcKey) {

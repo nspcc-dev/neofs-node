@@ -41,7 +41,8 @@ func TestDB_ReviveObject(t *testing.T) {
 		res, diff, err := db.ReviveObject(raw.Address())
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
-		require.NotNil(t, res.TombstoneAddress())
+		require.Len(t, res.TombstoneAddresses(), 1)
+		require.False(t, res.TombstoneAddresses()[0].Object().IsZero())
 		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1, GC: -1, Payload: int64(raw.PayloadSize())}, diff)
 
 		c, err := db.ObjectCounters()
@@ -71,9 +72,10 @@ func TestDB_ReviveObject(t *testing.T) {
 		cBefore, err := db.ObjectCounters()
 		require.NoError(t, err)
 
-		// two tombstones target the same object
-		require.NoError(t, db.Put(createTSForObject(raw.GetContainerID(), raw.GetID())))
-		require.NoError(t, db.Put(createTSForObject(raw.GetContainerID(), raw.GetID())))
+		ts1 := createTSForObject(raw.GetContainerID(), raw.GetID())
+		ts2 := createTSForObject(raw.GetContainerID(), raw.GetID())
+		require.NoError(t, db.Put(ts1))
+		require.NoError(t, db.Put(ts2))
 
 		c, err := db.ObjectCounters()
 		require.NoError(t, err)
@@ -82,36 +84,32 @@ func TestDB_ReviveObject(t *testing.T) {
 		require.Equal(t, cBefore.GC+1, c.GC)
 		require.Equal(t, cBefore.Payload-raw.PayloadSize(), c.Payload)
 
-		// the first revive removes only a tombstone: the object stays
-		// deleted and the garbage mark keeps its payload off the counters
 		res, diff, err := db.ReviveObject(raw.Address())
 		require.NoError(t, err)
 		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
-		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1}, diff)
-
-		_, err = metaExists(db, raw.Address())
-		require.ErrorAs(t, err, new(apistatus.ObjectAlreadyRemoved))
-
-		c, err = db.ObjectCounters()
-		require.NoError(t, err)
-		require.Equal(t, cBefore.Phy+1, c.Phy)
-		require.EqualValues(t, 1, c.TS)
-		require.Equal(t, cBefore.GC+1, c.GC)
-		require.Equal(t, cBefore.Payload-raw.PayloadSize(), c.Payload)
-
-		// the last tombstone's removal revives the object for real
-		res, diff, err = db.ReviveObject(raw.Address())
-		require.NoError(t, err)
-		require.Equal(t, meta.ReviveStatusGraveyard, res.StatusType())
-		require.Equal(t, meta.CountersDiff{Phy: -1, TS: -1, GC: -1, Payload: int64(raw.PayloadSize())}, diff)
+		require.ElementsMatch(t, []oid.Address{ts1.Address(), ts2.Address()}, res.TombstoneAddresses())
+		require.Contains(t, res.Message(), ts1.Address().EncodeToString())
+		require.Contains(t, res.Message(), ts2.Address().EncodeToString())
+		require.Equal(t, meta.CountersDiff{Phy: -2, TS: -2, GC: -1, Payload: int64(raw.PayloadSize())}, diff)
 
 		exists, err := metaExists(db, raw.Address())
 		require.NoError(t, err)
 		require.True(t, exists)
 
+		for _, tsAddr := range []oid.Address{ts1.Address(), ts2.Address()} {
+			exists, err = metaExists(db, tsAddr)
+			require.NoError(t, err)
+			require.False(t, exists)
+		}
+
 		c, err = db.ObjectCounters()
 		require.NoError(t, err)
 		require.Equal(t, cBefore, c)
+
+		res, _, err = db.ReviveObject(raw.Address())
+		require.ErrorIs(t, err, meta.ErrObjectWasNotRemoved)
+		require.Equal(t, meta.ReviveStatusError, res.StatusType())
+		require.Empty(t, res.TombstoneAddresses())
 	})
 
 	t.Run("target deleted by GC before revive", func(t *testing.T) {

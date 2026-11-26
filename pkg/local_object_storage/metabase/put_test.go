@@ -168,7 +168,7 @@ func TestDB_Put_ObjectWithTombstone(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, meta.ReviveStatusGraveyard, rs.StatusType())
 	require.Contains(t, rs.Message(), "successful revival from graveyard")
-	require.Equal(t, tsAddr, rs.TombstoneAddress())
+	require.Equal(t, []oid.Address{tsAddr}, rs.TombstoneAddresses())
 
 	t.Run("after revival", func(t *testing.T) {
 		// tombstone is deleted and the garbage was cleared
