@@ -1204,138 +1204,134 @@ func TestPolicer_Run_EC(t *testing.T) {
 	})
 
 	t.Run("parts restoration", func(t *testing.T) {
-		ecRules := []iec.Rule{
+		for _, tc := range []struct {
+			name         string
+			ecRules      []iec.Rule
+			healthyParts []int
+		}{
 			{
-				DataPartNum:   6,
-				ParityPartNum: 2,
+				name: "direct",
+				ecRules: []iec.Rule{
+					{DataPartNum: 6, ParityPartNum: 2},
+					{DataPartNum: 4, ParityPartNum: 1},
+				},
+				healthyParts: []int{5, 5},
 			},
 			{
-				DataPartNum:   3,
-				ParityPartNum: 1,
+				name: "recursive",
+				ecRules: []iec.Rule{
+					{DataPartNum: 5, ParityPartNum: 2},
+					{DataPartNum: 3, ParityPartNum: 2},
+					{DataPartNum: 2, ParityPartNum: 1},
+				},
+				healthyParts: []int{4, 2, 3},
 			},
-		}
-
-		var (
-			totalNodesNeed        uint8
-			totalFirstRuleObjects = int(ecRules[0].DataPartNum + ecRules[0].ParityPartNum)
-		)
-		for _, ecRule := range ecRules {
-			totalNodesNeed += ecRule.DataPartNum + ecRule.ParityPartNum
-		}
-		nodes := testutil.Nodes(int(totalNodesNeed))
-		var nodesPlacement = make([][]netmap.NodeInfo, len(ecRules))
-		for i := range nodes {
-			var placementVector int
-			if i < totalFirstRuleObjects {
-				placementVector = 0
-			} else {
-				placementVector = 1
-			}
-			nodesPlacement[placementVector] = append(nodesPlacement[placementVector], nodes[i])
-		}
-
-		const parentSize = 4 << 10
-		var (
-			parent, ecChain = generateECChain(t, parentSize, ecRules)
-			parentAddr      = parent.Address()
-			cID             = parentAddr.Container()
-			parentOID       = parentAddr.Object()
-		)
-
-		const (
-			localObjectECIdx   = 0
-			localObjectPartIdx = 4
-		)
-		localObj := objectcore.AddressWithAttributes{
-			Address: oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
-			Type:    object.TypeRegular,
-			Attributes: []string{
-				strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:]),
-				strconv.FormatUint(ecChain[localObjectECIdx][localObjectPartIdx].PayloadSize(), 10),
-			},
-		}
-		localNode := newTestLocalNode()
-		localNode.objList = []objectcore.AddressWithAttributes{localObj}
-		localNode.obj = ecChain[localObjectECIdx][localObjectPartIdx]
-
-		mockNet := newMockNetwork()
-		mockNet.setObjectNodesECResult(localObj.Address.Container(), parentOID, nodesPlacement, ecRules)
-		mockNet.pubKey = nodes[localObjectPartIdx].PublicKey()
-		conns := newMockAPIConnections()
-
-		// drop more objects than parity number from the first rule and set up
-		// the second rule
-		var firstRuleHealthyParts = int(ecRules[0].DataPartNum - 1)
-		for i := range nodes {
-			if i < totalFirstRuleObjects {
-				// first rule
-				obj := ecChain[0][i]
-				if i == localObjectPartIdx {
-					localNode.setECPartResult(t, obj)
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				var totalNodesNeed uint8
+				for _, ecRule := range tc.ecRules {
+					totalNodesNeed += ecRule.DataPartNum + ecRule.ParityPartNum
 				}
-				if i < firstRuleHealthyParts {
-					conns.setHeadResult(nodes[i], parentAddr, obj, nil)
-					conns.setRangeResult(nodes[i], parentAddr, 0, uint8(i), obj.Payload(), nil)
-				} else {
-					conns.setHeadResult(nodes[i], parentAddr, object.Object{}, error(apistatus.ErrObjectNotFound))
-					conns.setRangeResult(nodes[i], parentAddr, 0, uint8(i), nil, apistatus.ErrObjectNotFound)
+				nodes := testutil.Nodes(int(totalNodesNeed))
+				nodesPlacement := make([][]netmap.NodeInfo, len(tc.ecRules))
+				off := 0
+				for i, ecRule := range tc.ecRules {
+					n := int(ecRule.DataPartNum + ecRule.ParityPartNum)
+					nodesPlacement[i] = nodes[off : off+n]
+					off += n
 				}
-			} else {
-				// second rule
+
+				const parentSize = 4 << 10
 				var (
-					obj  = ecChain[1][i-totalFirstRuleObjects]
-					data = obj.Payload()
+					parent, ecChain = generateECChain(t, parentSize, tc.ecRules)
+					parentAddr      = parent.Address()
+					cID             = parentAddr.Container()
+					parentOID       = parentAddr.Object()
 				)
 
-				conns.setHeadResult(nodes[i], parentAddr, obj, nil)
-				conns.setRangeResult(nodes[i], parentAddr, 1, uint8(i-totalFirstRuleObjects), data, nil)
-			}
+				const localObjectECIdx = 0
+				localObjectPartIdx := tc.healthyParts[0] - 1
+				localObj := objectcore.AddressWithAttributes{
+					Address: oid.NewAddress(cID, ecChain[localObjectECIdx][localObjectPartIdx].GetID()),
+					Type:    object.TypeRegular,
+					Attributes: []string{
+						strconv.Itoa(localObjectECIdx), strconv.Itoa(localObjectPartIdx), string(parentOID[:]),
+						strconv.FormatUint(ecChain[localObjectECIdx][localObjectPartIdx].PayloadSize(), 10),
+					},
+				}
+				localNode := newTestLocalNode()
+				localNode.objList = []objectcore.AddressWithAttributes{localObj}
+				localNode.obj = ecChain[localObjectECIdx][localObjectPartIdx]
+				localNode.setECPartResult(t, localNode.obj)
+
+				mockNet := newMockNetwork()
+				mockNet.setObjectNodesECResult(localObj.Address.Container(), parentOID, nodesPlacement, tc.ecRules)
+				mockNet.pubKey = nodesPlacement[localObjectECIdx][localObjectPartIdx].PublicKey()
+				conns := newMockAPIConnections()
+
+				var droppedObjects []object.Object
+				for ruleIdx, objs := range ecChain {
+					for partIdx, obj := range objs {
+						node := nodesPlacement[ruleIdx][partIdx]
+						if partIdx < tc.healthyParts[ruleIdx] {
+							conns.setHeadResult(node, parentAddr, obj, nil)
+							conns.setRangeResult(node, parentAddr, uint8(ruleIdx), uint8(partIdx), obj.Payload(), nil)
+						} else {
+							droppedObjects = append(droppedObjects, obj)
+							conns.setHeadResult(node, parentAddr, object.Object{}, error(apistatus.ErrObjectNotFound))
+							conns.setRangeResult(node, parentAddr, uint8(ruleIdx), uint8(partIdx), nil, apistatus.ErrObjectNotFound)
+						}
+					}
+				}
+
+				r := newTestReplicator(t)
+				r.success = true
+				var (
+					m                sync.Mutex
+					restoredObjectsM = make(map[oid.Address]object.Object)
+				)
+				r.onTask = func(task replicator.Task, _ []netmap.NodeInfo) {
+					obj := *task.Object()
+					// Clone payload because the policer reuses its scratch buffer across recursive rule restores.
+					obj.SetPayload(slices.Clone(obj.Payload()))
+					addr := obj.Address()
+
+					m.Lock()
+					restoredObjectsM[addr] = obj
+					m.Unlock()
+				}
+
+				p := New(neofscryptotest.Signer(),
+					WithReplicationCooldown(50*time.Millisecond),
+					WithNetwork(mockNet),
+					WithLogger(zaptest.NewLogger(t)),
+					WithMetrics(&mockMetrics{}),
+				)
+				p.localStorage = localNode
+				p.apiConns = conns
+				p.replicator = r
+
+				synctest.Test(t, func(t *testing.T) {
+					ctx, cancel := context.WithCancel(context.Background())
+					t.Cleanup(cancel)
+					go p.Run(ctx)
+
+					time.Sleep(time.Second)
+					require.NotNil(t, r.task.Load())
+
+					require.Greater(t, mockNet.totalGetNodesCalls(), uint64(0))
+
+					synctest.Wait()
+
+					m.Lock()
+					restoredObjects := slices.Collect(maps.Values(restoredObjectsM))
+					m.Unlock()
+
+					require.Len(t, restoredObjects, len(droppedObjects))
+					require.ElementsMatch(t, restoredObjects, droppedObjects)
+				})
+			})
 		}
-
-		r := newTestReplicator(t)
-		r.success = true
-		var (
-			m                sync.Mutex
-			restoredObjectsM = make(map[oid.Address]object.Object)
-		)
-		r.onTask = func(task replicator.Task, infos []netmap.NodeInfo) {
-			m.Lock()
-			obj := task.Object()
-			addr := obj.Address()
-			restoredObjectsM[addr] = *obj
-			m.Unlock()
-		}
-
-		p := New(neofscryptotest.Signer(),
-			WithReplicationCooldown(50*time.Millisecond),
-			WithNetwork(mockNet),
-			WithLogger(zaptest.NewLogger(t)),
-			WithMetrics(&mockMetrics{}),
-		)
-		p.localStorage = localNode
-		p.apiConns = conns
-		p.replicator = r
-
-		synctest.Test(t, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			t.Cleanup(cancel)
-			go p.Run(ctx)
-
-			time.Sleep(time.Second)
-			require.NotNil(t, r.task.Load())
-
-			require.Greater(t, mockNet.totalGetNodesCalls(), uint64(0))
-
-			synctest.Wait()
-
-			var (
-				droppedObjects  = ecChain[0][firstRuleHealthyParts:]
-				restoredObjects = slices.Collect(maps.Values(restoredObjectsM))
-			)
-
-			require.Len(t, restoredObjects, len(droppedObjects))
-			require.ElementsMatch(t, restoredObjects, droppedObjects)
-		})
 	})
 
 	t.Run("cross-rule restoration recursion", func(t *testing.T) {
