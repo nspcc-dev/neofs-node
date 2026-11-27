@@ -7,6 +7,8 @@ Changelog for NeoFS Node
 - Support for minimum EC parts required for successful PUT (#4267, #4370)
 - Support of container *AttributeV2 RPC requests (#4268)
 - Support for container policies with limited number of additional nodes (#4269, #4302)
+- Support for `SELECT *` in container policies (#4378)
+- Support for new API signature scheme (#4378)
 
 ### Fixed
 - Shard object counters, payload size, and container size metrics drifted after reviving an object (#4309)
@@ -43,7 +45,7 @@ Changelog for NeoFS Node
 ### Removed
 
 ### Updated
-- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261123152608-5ba5c155d49a` (#4267, #4302, #4341, #4367)
+- `github.com/nspcc-dev/neofs-sdk-go` module to `v1.0.0-rc.24.0.20261127064108-cc7838863514` (#4267, #4302, #4341, #4367, #4378)
 - `github.com/nspcc-dev/neofs-contract` module to `v0.28.1-0.20261110143356-1fd09a8bf001` (#4268)
 
 ### Updating from v0.58.2
