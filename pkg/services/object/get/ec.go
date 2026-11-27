@@ -30,6 +30,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var errECPartNodesFailed = errors.New("all nodes failed")
+
 type tooManyPartsUnavailableError int
 
 func (x tooManyPartsUnavailableError) Error() string {
@@ -559,7 +561,7 @@ func (s *Service) getECPartStream(ctx context.Context, cnr cid.ID, parent oid.ID
 		}
 	}
 
-	return object.Object{}, nil, errors.New("all nodes failed")
+	return object.Object{}, nil, errECPartNodesFailed
 }
 
 // reads object for EC part which should produced for parent object and
@@ -1035,16 +1037,30 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 	stageCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 	defer cancel()
 
-	partHdr, firstPartStream, err := s.getECPartStream(stageCtx, cnr, parent, rule, ruleIdx, sortedNodes, 0)
+	var partHdr object.Object
+	var stream io.ReadCloser
+	var partIdx int
+	err := errECPartNodesFailed
+	for partIdx = range int(rule.DataPartNum + rule.ParityPartNum) {
+		partHdr, stream, err = s.getECPartStream(stageCtx, cnr, parent, rule, ruleIdx, sortedNodes, partIdx)
+		if !errors.Is(err, errECPartNodesFailed) || stageCtx.Err() != nil {
+			break
+		}
+	}
 	if err != nil {
 		return 0, 0, fmt.Errorf("resolve parent payload length: %w", err)
 	}
-	if firstPartStream != nil {
-		defer firstPartStream.Close()
+	if stream != nil {
+		if partIdx == 0 || partHdr.Type() == object.TypeLink {
+			defer stream.Close()
+		} else {
+			stream.Close()
+			stream = nil
+		}
 	}
 
 	if partHdr.Type() == object.TypeLink {
-		buf, err := s.readSizeSplitLinkerPayload(partHdr.PayloadSize(), firstPartStream)
+		buf, err := s.readSizeSplitLinkerPayload(partHdr.PayloadSize(), stream)
 		if err != nil {
 			return 0, 0, fmt.Errorf("read size-split linker payload stream: %w", err)
 		}
@@ -1067,7 +1083,7 @@ func (s *Service) copyECObjectRangeByRule(ctx context.Context, dst ChunkWriter, 
 	}
 
 	written, err := s.copyECObjectRangeByParts(ctx, dst, localNodeKey, cnr, parent, rule, ruleIdx, sortedNodes,
-		pldLen, off, ln, firstPartStream)
+		pldLen, off, ln, stream)
 
 	return written, pldLen, err
 }

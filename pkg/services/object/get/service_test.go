@@ -119,7 +119,8 @@ type getECPartValue struct {
 
 type mockLocalObjects struct {
 	unimplementedLocalStorage
-	getECPart map[getECPartKey]getECPartValue
+	getECPart      map[getECPartKey]getECPartValue
+	getECPartCount atomic.Uint32
 }
 
 func (x *mockLocalObjects) GetECPartRange(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, rng blobstor.PayloadRange, readHeader bool) (*object.Object, uint64, io.ReadCloser, error) {
@@ -148,6 +149,7 @@ func (x *mockLocalObjects) GetECPartRange(_ context.Context, cnr cid.ID, parent 
 }
 
 func (x *mockLocalObjects) GetECPart(_ context.Context, cnr cid.ID, parent oid.ID, pi iec.PartInfo, allowAnyPart bool) (object.Object, io.ReadCloser, error) {
+	x.getECPartCount.Add(1)
 	v, ok := x.getECPart[getECPartKey{
 		cnr:    cnr,
 		parent: parent,
