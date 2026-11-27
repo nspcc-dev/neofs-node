@@ -14,6 +14,43 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestEncodeWithoutPayloadEmpty(t *testing.T) {
+	obj := objecttest.Object()
+	obj.SetPayload(nil)
+	obj.SetPayloadSize(0)
+	id := oidtest.ID()
+	obj.SetID(id)
+	hdr := *obj.CutPayload()
+	wantObjBin := obj.Marshal()
+
+	t.Run("object", func(t *testing.T) {
+		r, err := encodeObjectWithoutPayload(hdr, 0)
+		require.NoError(t, err)
+		require.Zero(t, r.hdrOff)
+		require.Equal(t, len(r.b), r.pldFldOff)
+		require.Equal(t, len(r.b), r.pldOff)
+		require.Equal(t, wantObjBin, r.b)
+	})
+
+	t.Run("replicate request", func(t *testing.T) {
+		signer := neofscryptotest.Signer()
+
+		r, err := encodeReplicateRequestWithoutPayload(signer, hdr, 0, true)
+		require.NoError(t, err)
+		require.Equal(t, len(r.b), r.pldFldOff)
+		require.Equal(t, len(r.b), r.pldOff)
+		require.Equal(t, wantObjBin, r.b[r.hdrOff:])
+
+		var req protoobject.ReplicateRequest
+		require.NoError(t, proto.Unmarshal(r.b, &req))
+
+		var obj2 object.Object
+		require.NoError(t, obj2.FromProtoMessage(req.Object))
+		require.Equal(t, obj, obj2)
+		require.True(t, req.GetSignObject())
+	})
+}
+
 func TestUnaryReplicateRequest(t *testing.T) {
 	// prepare replicated object
 	payload := make([]byte, 1024)

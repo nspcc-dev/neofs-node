@@ -34,6 +34,7 @@ Changelog for NeoFS Node
 - SN client cache repeatedly dialed unreachable peers without backoff, stalling policer and other callers (#4336)
 - V2-split PUT bypassed parent-attribute eACL rules when the parent header could not be resolved (#4374)
 - Session `Create` accepted expiration epochs in the past or arbitrarily far in the future (#4380)
+- GET on zero-byte objects could emit an empty data chunk, failing SDK clients, split-object assembly, and S3 multipart uploads (#4381)
 
 ### Changed
 - Reduced allocations in eACL header lookups and eliminated redundant protobuf encoding and decoding in GET eACL rechecks (#4341)

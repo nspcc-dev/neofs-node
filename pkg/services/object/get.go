@@ -687,6 +687,10 @@ func (x *getECTransport) copyRemotePart(ctx context.Context, conn *grpc.ClientCo
 
 			copiedHdr = true
 		case protoobject.FieldGetResponseBodyChunk:
+			if fld.Len() == 0 {
+				respBuf.Free()
+				continue
+			}
 			copiedPartPldLen += uint64(fld.Len())
 			if copiedPartPldLen > partPldLen {
 				respBuf.Free()

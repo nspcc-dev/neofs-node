@@ -61,7 +61,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
-	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1344,17 +1343,7 @@ func (x *inMemLocalStorage) Put(_ context.Context, obj *object.Object, objBin []
 	}
 
 	if objBin != nil {
-		got := obj.Marshal()
-		if len(obj.Payload()) == 0 && len(objBin) == len(got)+2 {
-			// this may happen because encodeReplicateRequestWithoutPayload, unlike Marshal,
-			// adds field tag for payload even when it is empty
-			emptyPayloadField := protowire.AppendTag(nil, 4, protowire.BytesType)
-			emptyPayloadField = protowire.AppendBytes(emptyPayloadField, nil)
-			if bytes.Equal(objBin[len(got):], emptyPayloadField) {
-				objBin = objBin[:len(got)]
-			}
-		}
-		if !bytes.Equal(objBin, got) {
+		if !bytes.Equal(objBin, obj.Marshal()) {
 			return errors.New("binary mismatches object")
 		}
 	}

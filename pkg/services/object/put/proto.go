@@ -27,7 +27,10 @@ func encodeObjectWithoutPayload(hdr object.Object, pldLen int) (encodedObject, e
 
 	hdrProto := hdr.ProtoMessage()
 	hdrLen := hdrProto.MarshaledSize()
-	pldFldLen := protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeBytes(pldLen)
+	var pldFldLen int
+	if pldLen > 0 {
+		pldFldLen = protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeBytes(pldLen)
+	}
 	if pldFldLen > math.MaxInt-hdrLen {
 		return res, fmt.Errorf("binary object is too big for this server: %d+%d>%d", hdrLen, pldLen, math.MaxInt)
 	}
@@ -41,8 +44,10 @@ func encodeObjectWithoutPayload(hdr object.Object, pldLen int) (encodedObject, e
 	res.b = res.b[:hdrLen]
 	hdrProto.MarshalStable(res.b)
 	res.pldFldOff = len(res.b)
-	res.b = protowire.AppendTag(res.b, protoobject.FieldObjectPayload, protowire.BytesType)
-	res.b = protowire.AppendVarint(res.b, uint64(pldLen))
+	if pldLen > 0 {
+		res.b = protowire.AppendTag(res.b, protoobject.FieldObjectPayload, protowire.BytesType)
+		res.b = protowire.AppendVarint(res.b, uint64(pldLen))
+	}
 	res.pldOff = len(res.b)
 
 	return res, nil
@@ -62,7 +67,10 @@ func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.
 
 	hdrProto := hdr.ProtoMessage()
 	hdrLen := hdrProto.MarshaledSize()
-	pldFldLen := protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeBytes(pldLen)
+	var pldFldLen int
+	if pldLen > 0 {
+		pldFldLen = protowire.SizeTag(protoobject.FieldObjectPayload) + protowire.SizeBytes(pldLen)
+	}
 	if pldFldLen > math.MaxInt-hdrLen {
 		return res, fmt.Errorf("binary object is too big for this server: %d+%d>%d", hdrLen, pldFldLen, math.MaxInt)
 	}
@@ -107,8 +115,10 @@ func encodeReplicateRequestWithoutPayload(signer neofscrypto.Signer, hdr object.
 	res.b = res.b[:len(res.b)+hdrLen]
 	hdrProto.MarshalStable(res.b[res.hdrOff:])
 	res.pldFldOff = len(res.b)
-	res.b = protowire.AppendTag(res.b, protoobject.FieldObjectPayload, protowire.BytesType)
-	res.b = protowire.AppendVarint(res.b, uint64(pldLen))
+	if pldLen > 0 {
+		res.b = protowire.AppendTag(res.b, protoobject.FieldObjectPayload, protowire.BytesType)
+		res.b = protowire.AppendVarint(res.b, uint64(pldLen))
+	}
 	res.pldOff = len(res.b)
 
 	return res, nil
