@@ -1394,6 +1394,10 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 	}()
 
 	if fullPayloadBuffered {
+		if bufferedPldLen == 0 {
+			chunkRespBuf.Free()
+			return nil
+		}
 		bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+bufferedPldTagLen, bufferedPldLen)
 
 		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
@@ -1417,6 +1421,7 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 
 		n += prereadPldLen
 
+		payloadOff := maxChunkOffsetInGetResponse
 		if first && n > 0 {
 			prereadPldLen, _, err = parseObjectPayloadFieldTag(chunkBuf[:n])
 			if err != nil {
@@ -1425,14 +1430,14 @@ func (s *Server) copyGetStream(gStream grpc.ServerStream, hdrRespBuf *iprotobuf.
 			}
 
 			n -= prereadPldLen
-			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse+prereadPldLen, n)
+			payloadOff += prereadPldLen
 			prereadPldLen = 0
-		} else if n == 0 {
+		}
+		if n == 0 {
 			chunkRespBuf.Free()
 			return nil
-		} else {
-			bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, maxChunkOffsetInGetResponse, n)
 		}
+		bodyf = shiftPayloadChunkInGetResponseBuffer(chunkRespBuf.SliceBuffer, payloadOff, n)
 
 		chunkRespBuf.SetBounds(bodyf.From, bodyf.To)
 		if err = gStream.SendMsg(chunkRespBuf); err != nil {

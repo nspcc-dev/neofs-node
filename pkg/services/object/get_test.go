@@ -20,6 +20,7 @@ import (
 	aclv2 "github.com/nspcc-dev/neofs-node/pkg/services/object/acl/v2"
 	getsvc "github.com/nspcc-dev/neofs-node/pkg/services/object/get"
 	"github.com/nspcc-dev/neofs-node/pkg/services/object/util"
+	sdkclient "github.com/nspcc-dev/neofs-sdk-go/client"
 	"github.com/nspcc-dev/neofs-sdk-go/container/acl"
 	cid "github.com/nspcc-dev/neofs-sdk-go/container/id"
 	cidtest "github.com/nspcc-dev/neofs-sdk-go/container/id/test"
@@ -28,10 +29,12 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
 	"github.com/nspcc-dev/neofs-sdk-go/object"
 	oid "github.com/nspcc-dev/neofs-sdk-go/object/id"
+	protonetmap "github.com/nspcc-dev/neofs-sdk-go/proto/netmap"
 	protoobject "github.com/nspcc-dev/neofs-sdk-go/proto/object"
 	iprotobuf "github.com/nspcc-dev/neofs-sdk-go/proto/protobuf"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/proto/status"
+	"github.com/nspcc-dev/neofs-sdk-go/user"
 	usertest "github.com/nspcc-dev/neofs-sdk-go/user/test"
 	"github.com/nspcc-dev/neofs-sdk-go/version"
 	"github.com/stretchr/testify/require"
@@ -228,6 +231,50 @@ func TestServer_Get_Local(t *testing.T) {
 		assertGetRequest(t, srv, mtrc, req, part, true)
 
 		handlerFSChain.ecRules = nil
+	})
+
+	t.Run("empty payload field", func(t *testing.T) {
+		obj := object.New(cnr, signer.ID)
+		obj.SetCreationEpoch(1)
+		obj.SetPayloadSize(0)
+		require.NoError(t, obj.SetVerificationFields(signer))
+
+		canonBin := obj.Marshal()
+		objBin := protowire.AppendTag(slices.Clone(canonBin), protoobject.FieldObjectPayload, protowire.BytesType)
+		objBin = protowire.AppendVarint(objBin, 0)
+
+		require.NoError(t, storage.Put(t.Context(), obj, objBin))
+
+		sdkCli := newSDKClient(t, srv)
+
+		check := func(t *testing.T) {
+			t.Run("raw", func(t *testing.T) {
+				assertGetOK(t, srv, mtrc, *obj, signer)
+			})
+			t.Run("sdk", func(t *testing.T) {
+				assertSDKGetEmptyOK(t, sdkCli, *obj, signer, false)
+			})
+			t.Run("sdk payload only", func(t *testing.T) {
+				assertSDKGetEmptyOK(t, sdkCli, *obj, signer, true)
+			})
+		}
+
+		t.Run("stored", check)
+
+		for _, tc := range []struct {
+			name      string
+			headerLen int
+		}{
+			{name: "cut before tag", headerLen: len(canonBin)},
+			{name: "cut inside tag", headerLen: len(canonBin) + 1},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				handlers.mockObject = objBin
+				handlers.mockHeaderLen = tc.headerLen
+				t.Cleanup(func() { handlers.mockObject = nil })
+				check(t)
+			})
+		}
 	})
 }
 
@@ -431,6 +478,70 @@ func TestServer_Get_Remote(t *testing.T) {
 				return proto.Equal(resp, gotResp)
 			}))
 		})
+	})
+
+	t.Run("EC remote empty chunk", func(t *testing.T) {
+		nodes := make([]netmap.NodeInfo, 2)
+		for i := range nodes {
+			nodes[i].SetPublicKey([]byte("ec_pub_" + strconv.Itoa(i)))
+			nodes[i].SetNetworkEndpoints("localhost:" + strconv.Itoa(9190+i))
+		}
+
+		emptyObj := *object.New(cnr, signer.ID)
+		emptyObj.SetPayloadSize(0)
+		require.NoError(t, emptyObj.SetVerificationFields(signer))
+
+		part, err := iec.FormObjectForECPart(signer, emptyObj, nil, iec.PartInfo{RuleIndex: 0, Index: 0})
+		require.NoError(t, err)
+		partMsg := part.ProtoMessage()
+
+		mockConns := newMockConnections()
+		mockConns.setConn(nodes[1], emptyRemoteNode{})
+		mockConns.setConn(nodes[0], newFixedGetResponsesConn(t, []*protoobject.GetResponse{
+			{
+				Body: &protoobject.GetResponse_Body{
+					ObjectPart: &protoobject.GetResponse_Body_Init_{
+						Init: &protoobject.GetResponse_Body_Init{
+							ObjectId:  partMsg.ObjectId,
+							Signature: partMsg.Signature,
+							Header:    partMsg.Header,
+						},
+					},
+				},
+				MetaHeader:   newBlankMetaHeader(),
+				VerifyHeader: newAnyVerificationHeader(),
+			},
+			{
+				Body: &protoobject.GetResponse_Body{
+					ObjectPart: &protoobject.GetResponse_Body_Chunk{},
+				},
+			},
+		}))
+
+		handlerFSChain := mockHandlerFSChain{
+			ecRules:   []iec.Rule{{DataPartNum: 1, ParityPartNum: 1}},
+			nodeLists: [][]netmap.NodeInfo{nodes},
+			localPub:  nodes[1].PublicKey(),
+		}
+
+		handler := getsvc.New(&handlerFSChain,
+			getsvc.WithLocalStorageEngine(newSimpleStorage(t, fsChain)),
+			getsvc.WithClientConstructor(mockConns),
+			getsvc.WithKeyStorage(keyStorage),
+		)
+
+		var ecReqInfoExt mockReqInfoExtractor
+		var ecPolicy netmap.PlacementPolicy
+		ecPolicy.SetECRules([]netmap.ECRule{netmap.NewECRule(1, 1)})
+		ecReqInfoExt.getRequestInfo.Container.SetPlacementPolicy(ecPolicy)
+
+		srv := New(getOnlyHandler{svc: handler}, fsChain, nil, nil, signer.ECDSAPrivateKey, &mtrc, aclChecker, ecReqInfoExt, nil, fixedFutureTimeProvider{}, zap.NewNop())
+
+		req := newUnsignedLocalGetRequest(version.Current(), emptyObj.Address())
+		req.MetaHeader.Ttl = 2
+		signGetRequest(t, req, signer)
+
+		assertGetStreamResponses(t, emptyObj, collectGetResponses(t, srv, req), false)
 	})
 }
 
@@ -659,6 +770,70 @@ func callGet(t *testing.T, srv *Server, req *protoobject.GetRequest) (grpc.Serve
 	require.NoError(t, err) // lib misuse, not a request error
 
 	return protoobject.NewObjectServiceClient(c).Get(context.Background(), req)
+}
+
+type stubNetmapServer struct {
+	protonetmap.UnimplementedNetmapServiceServer
+}
+
+func (stubNetmapServer) LocalNodeInfo(context.Context, *protonetmap.LocalNodeInfoRequest) (*protonetmap.LocalNodeInfoResponse, error) {
+	var ni netmap.NodeInfo
+	ni.SetPublicKey(make([]byte, 33))
+	ni.SetNetworkEndpoints("localhost:8080")
+	return &protonetmap.LocalNodeInfoResponse{
+		Body: &protonetmap.LocalNodeInfoResponse_Body{
+			Version:  version.Current().ProtoMessage(),
+			NodeInfo: ni.ProtoMessage(),
+		},
+	}, nil
+}
+
+func newSDKClient(t testing.TB, srv *Server) *sdkclient.Client {
+	t.Helper()
+
+	lis := bufconn.Listen(32 << 10)
+	grpcSrv := grpc.NewServer(
+		grpc.ForceServerCodecV2(iprotobuf.BufferedCodec{}),
+	)
+	t.Cleanup(grpcSrv.Stop)
+
+	protoobject.RegisterObjectServiceServer(grpcSrv, srv)
+	protonetmap.RegisterNetmapServiceServer(grpcSrv, stubNetmapServer{})
+
+	go func() { _ = grpcSrv.Serve(lis) }()
+
+	conn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	c, err := sdkclient.NewGRPC(t.Context(), conn, nil, 0)
+	require.NoError(t, err)
+
+	return c
+}
+
+func assertSDKGetEmptyOK(t testing.TB, c *sdkclient.Client, obj object.Object, signer user.Signer, payloadOnly bool) {
+	t.Helper()
+
+	var prm sdkclient.PrmObjectGet
+	prm.MarkLocal()
+	if payloadOnly {
+		prm.MarkPayloadOnly()
+	}
+
+	hdr, rdr, err := c.ObjectGetInit(t.Context(), obj.GetContainerID(), obj.GetID(), signer, prm)
+	require.NoError(t, err)
+	if !payloadOnly {
+		require.Equal(t, *obj.CutPayload(), hdr)
+	}
+
+	pld, err := io.ReadAll(rdr)
+	require.NoError(t, err)
+	require.Empty(t, pld)
+	require.NoError(t, rdr.Close())
 }
 
 func assertGetOK(t *testing.T, srv *Server, mtrc *metricsCollector, obj object.Object, signer neofscrypto.Signer) {
