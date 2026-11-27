@@ -375,6 +375,7 @@ func (r noopNNSResolver) HasUser(string, user.ID) (bool, error) {
 //	*internal.DeleteObjectPrm
 func CreateSessionV2(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cli *client.Client, key *ecdsa.PrivateKey, subjects []sessionv2.Target, cnr cid.ID) error {
 	const defaultTokenExp = 10 * time.Hour
+	const maxSessionLifetime = 720 // Match the server's Session.Create limit in epochs.
 
 	common.PrintVerbose(cmd, "Creating V2 session token locally...")
 	var tok sessionv2.Token
@@ -382,14 +383,12 @@ func CreateSessionV2(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cl
 
 	var (
 		currentTime = time.Now()
-		expTime     = currentTime.Add(defaultTokenExp)
 		// allow 30s clock skew, because time isn't synchronous over the network
 		nbfTime = currentTime.Add(-30 * time.Second)
 	)
 	tok.SetVersion(sessionv2.TokenCurrentVersion)
 	tok.SetIat(nbfTime)
 	tok.SetNbf(nbfTime)
-	tok.SetExp(expTime)
 	tok.SetFinal(true)
 	err := tok.SetSubjects(subjects)
 	if err != nil {
@@ -407,6 +406,12 @@ func CreateSessionV2(ctx context.Context, cmd *cobra.Command, dst SessionPrm, cl
 		return errors.New("invalid network configuration: epoch duration is zero")
 	}
 	epochLifetime := (defaultTokenExp.Milliseconds() + epochInMs - 1) / epochInMs
+	lifetime := defaultTokenExp
+	if epochLifetime > maxSessionLifetime {
+		epochLifetime = maxSessionLifetime
+		lifetime = time.Duration(epochLifetime*epochInMs) * time.Millisecond
+	}
+	tok.SetExp(currentTime.Add(lifetime))
 	epochExp := ni.CurrentEpoch() + uint64(epochLifetime)
 	common.PrintVerbose(cmd, "Current epoch: %d", ni.CurrentEpoch())
 	common.PrintVerbose(cmd, "Token expiration epoch: %d", epochExp)

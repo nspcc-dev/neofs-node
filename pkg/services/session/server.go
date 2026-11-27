@@ -10,8 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	icrypto "github.com/nspcc-dev/neofs-node/internal/crypto"
+	netmapcore "github.com/nspcc-dev/neofs-node/pkg/core/netmap"
 	timecore "github.com/nspcc-dev/neofs-node/pkg/core/time"
 	"github.com/nspcc-dev/neofs-node/pkg/services/util"
+	apistatus "github.com/nspcc-dev/neofs-sdk-go/client/status"
 	neofscrypto "github.com/nspcc-dev/neofs-sdk-go/crypto"
 	neofsecdsa "github.com/nspcc-dev/neofs-sdk-go/crypto/ecdsa"
 	protorefs "github.com/nspcc-dev/neofs-sdk-go/proto/refs"
@@ -28,22 +30,27 @@ type KeyStorage interface {
 	Store(key ecdsa.PrivateKey, exp uint64) error
 }
 
+// maxSessionLifetime bounds how far into the future a new key can be kept in storage.
+const maxSessionLifetime = 720
+
 type server struct {
 	protosession.UnimplementedSessionServiceServer
 	signer    *ecdsa.PrivateKey
 	keys      KeyStorage
 	chainTime timecore.Provider
+	net       netmapcore.State
 }
 
 // New provides protosession.SessionServiceServer based on specified [KeyStorage].
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, ks KeyStorage, chainTime timecore.Provider) protosession.SessionServiceServer {
+func New(s *ecdsa.PrivateKey, ks KeyStorage, chainTime timecore.Provider, net netmapcore.State) protosession.SessionServiceServer {
 	return &server{
 		signer:    s,
 		keys:      ks,
 		chainTime: chainTime,
+		net:       net,
 	}
 }
 
@@ -89,6 +96,19 @@ func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*pr
 	var usr user.ID
 	if err := usr.FromProtoMessage(mUsr); err != nil {
 		return s.makeFailedCreateResponse(fmt.Errorf("invalid account: %w", err), req)
+	}
+
+	cur := s.net.CurrentEpoch()
+	if reqBody.Expiration < cur {
+		var err apistatus.BadRequest
+		err.SetMessage(fmt.Sprintf("requested expiration epoch %d precedes the current epoch %d", reqBody.Expiration, cur))
+		return s.makeFailedCreateResponse(err, req)
+	}
+	if reqBody.Expiration-cur > maxSessionLifetime {
+		var err apistatus.BadRequest
+		err.SetMessage(fmt.Sprintf("requested expiration epoch %d exceeds the maximum session lifetime of %d epochs from current epoch %d",
+			reqBody.Expiration, maxSessionLifetime, cur))
+		return s.makeFailedCreateResponse(err, req)
 	}
 
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
