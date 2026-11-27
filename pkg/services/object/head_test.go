@@ -292,7 +292,7 @@ func newUnsignedLocalHeadRequest(ver version.Version, addr oid.Address) *protoob
 
 func signHeadRequest(t *testing.T, req *protoobject.HeadRequest, signer neofscrypto.Signer) {
 	var err error
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
+	req.VerifyHeader, err = neofscrypto.SignRequest(signer, req, magicNumber, protoobject.ObjectService_Head_FullMethodName, nil)
 	require.NoError(t, err)
 }
 

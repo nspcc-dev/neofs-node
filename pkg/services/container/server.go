@@ -115,7 +115,7 @@ type sessionTokenCommonCheckResult struct {
 type Server struct {
 	protocontainer.UnimplementedContainerServiceServer
 	signer    *ecdsa.PrivateKey
-	net       netmapcore.State
+	net       netmapcore.StateDetailed
 	contract  Contract
 	resolver  *nnscore.Resolver
 	chainTime timecore.Provider
@@ -129,7 +129,7 @@ type Server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, net netmapcore.State, fsChain FSChain, c Contract, nc NetmapContract, chainTime timecore.Provider) *Server {
+func New(s *ecdsa.PrivateKey, net netmapcore.StateDetailed, fsChain FSChain, c Contract, nc NetmapContract, chainTime timecore.Provider) *Server {
 	sessionTokenCheckCache, err := lru.New[[sha256.Size]byte, sessionTokenCommonCheckResult](1000)
 	if err != nil {
 		panic(fmt.Errorf("unexpected error in lru.New: %w", err))
@@ -389,7 +389,13 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		return s.makeFailedPutResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_Put_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeFailedPutResponse(err, req)
 	}
 
@@ -495,7 +501,13 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 		return s.makeDeleteResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_Delete_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeDeleteResponse(err, req)
 	}
 
@@ -560,7 +572,13 @@ func (s *Server) Get(ctx context.Context, req *protocontainer.GetRequest) (*prot
 		return s.makeFailedGetResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_Get_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeFailedGetResponse(err, req)
 	}
 
@@ -607,7 +625,13 @@ func (s *Server) List(ctx context.Context, req *protocontainer.ListRequest) (*pr
 		return s.makeFailedListResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_List_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeFailedListResponse(err, req)
 	}
 
@@ -658,7 +682,13 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_SetExtendedACL_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
 
@@ -755,7 +785,13 @@ func (s *Server) GetExtendedACL(ctx context.Context, req *protocontainer.GetExte
 		return s.makeFailedGetEACLResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_GetExtendedACL_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeFailedGetEACLResponse(err, req)
 	}
 
@@ -922,7 +958,13 @@ func (s *Server) SetAttributeV2(ctx context.Context, req *protocontainer.SetAttr
 	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), reqMetaHeader); err != nil {
 		return s.makeSetAttributeV2Response(err)
 	}
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_SetAttributeV2_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeSetAttributeV2Response(err)
 	}
 	if err := verifySetAttributeV2RequestBody(reqBody); err != nil {
@@ -968,7 +1010,13 @@ func (s *Server) RemoveAttributeV2(ctx context.Context, req *protocontainer.Remo
 	if err := util.VerifyRequestValidityTime(s.chainTime.Now(), reqMetaHeader); err != nil {
 		return s.makeRemoveAttributeV2Response(err)
 	}
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.net.ChainMagicNumber(), protocontainer.ContainerService_RemoveAttributeV2_FullMethodName, s.historicN3ScriptRunner)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.historicN3ScriptRunner)
+	}
+	if err != nil {
 		return s.makeRemoveAttributeV2Response(err)
 	}
 	if err := verifyRemoveAttributeV2RequestBody(reqBody); err != nil {

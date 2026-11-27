@@ -59,6 +59,18 @@ func VerifyRequestValidityTime(now time.Time, reqMetaHeader *protosession.Reques
 	return nil
 }
 
+// NewSignatureSchemeRequest returns whether reqMetaHeader from request
+// indicates that request must be signed using the new signature scheme
+// v2.29+ (signed data must include magic number and method name).
+// Refs https://github.com/nspcc-dev/neofs-api/pull/455.
+func NewSignatureSchemeRequest(reqMetaHeader *protosession.RequestMetaHeader) bool {
+	v := reqMetaHeader.GetVersion()
+	if v == nil {
+		return false
+	}
+	return (v.Major == 2 && v.Minor >= 29) || v.Major > 2
+}
+
 func newBadRequestError(msg string) error {
 	var res apistatus.BadRequest
 	res.SetMessage(msg)

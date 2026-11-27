@@ -66,8 +66,9 @@ import (
 )
 
 const (
-	currentEpoch  = 123
-	maxObjectSize = 1000
+	currentEpoch       = 123
+	maxObjectSize      = 1000
+	networkMagicNumber = 12345
 )
 
 type quotas struct {
@@ -1223,6 +1224,10 @@ type mockNetwork struct {
 	mockNodeState
 	localPub []byte
 	cnrNodes mockContainerNodes
+}
+
+func (x *mockNetwork) ChainMagicNumber() uint64 {
+	return networkMagicNumber
 }
 
 func (*mockNetwork) CurrentBlock() uint32 {

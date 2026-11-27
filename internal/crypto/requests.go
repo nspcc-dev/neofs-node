@@ -22,6 +22,34 @@ func VerifyRequestSignatures[B protoencoding.Message](req neofscrypto.SignedRequ
 	return verifyRequestSignatures(req, nil)
 }
 
+// VerifyRequestSignature is the same [VerifyRequestSignaturesWithContext] but
+// for API v2.29+. It requires magic number and a canonical gRPC method name
+// according to provided req. Supports [neofscrypto.N3] scheme.
+func VerifyRequestSignature[B protoencoding.Message](ctx context.Context, req neofscrypto.SignedRequest[B], magic uint64, method string, fsChain N3ScriptRunner) error {
+	if ctx != nil && !requestNeedsSignature(ctx, req) {
+		return nil
+	}
+
+	var err error
+	if fsChain == nil {
+		err = neofscrypto.VerifyRequest[B](req, magic, method, nil)
+	} else {
+		err = neofscrypto.VerifyRequestN3(req, magic, method, nil, func(data, invocScript, verifScript []byte) error {
+			verifScriptHash := hash.Hash160(verifScript)
+			return verifyN3ScriptsNow(fsChain, verifScriptHash, invocScript, verifScript, func() [sha256.Size]byte {
+				return sha256.Sum256(data)
+			})
+		})
+	}
+	if err != nil {
+		var st apistatus.SignatureVerification
+		st.SetMessage(err.Error())
+		return st
+	}
+
+	return nil
+}
+
 // VerifyRequestSignaturesWithContext is same as [VerifyRequestSignatures], but
 // skips verification for an authenticated inter-node request with TTL equal to one.
 func VerifyRequestSignaturesWithContext[B protoencoding.Message](ctx context.Context, req neofscrypto.SignedRequest[B]) error {

@@ -543,7 +543,10 @@ func initBasics(c *cfg, key *keys.PrivateKey, stateStorage *state.PersistentStor
 
 	lookupScriptHashesInNNS(cli, &b)
 
-	nState := newNetworkState(c.log)
+	magic, err := cli.MagicNumber()
+	fatalOnErr(err)
+
+	nState := newNetworkState(c.log, uint64(magic))
 	currBlock, err := cli.BlockCount()
 	fatalOnErr(err)
 	// Seed chain time before storage initialization starts GC. BlockCount

@@ -481,6 +481,7 @@ func (x *putStream) close() (*protoobject.PutResponse, error) {
 func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 	ctx := gStream.Context()
 	t := time.Now()
+	magicNumber := s.fsChain.ChainMagicNumber()
 	stream, err := s.handlers.Put(ctx)
 
 	defer func() { s.pushOpExecResult(stat.MethodObjectPut, err, t) }()
@@ -522,7 +523,12 @@ func (s *Server) Put(gStream protoobject.ObjectService_PutServer) error {
 			return err
 		}
 
-		if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
+		if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+			err = icrypto.VerifyRequestSignature(ctx, req, magicNumber, protoobject.ObjectService_Put_FullMethodName, s.fsChain)
+		} else {
+			err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain)
+		}
+		if err != nil {
 			err = s.sendStatusPutResponse(gStream, err, reqFirst) // assign for defer
 			return err
 		}
@@ -668,7 +674,12 @@ func (s *Server) Delete(ctx context.Context, req *protoobject.DeleteRequest) (*p
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
-	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.fsChain.ChainMagicNumber(), protoobject.ObjectService_Delete_FullMethodName, s.fsChain)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain)
+	}
+	if err != nil {
 		return s.makeStatusDeleteResponse(err, req), nil
 	}
 
@@ -771,7 +782,12 @@ func (s *Server) HeadBuffered(ctx context.Context, req *protoobject.HeadRequest)
 		return s.makeStatusHeadResponse(req, err)
 	}
 
-	if err := icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.fsChain.ChainMagicNumber(), protoobject.ObjectService_Head_FullMethodName, s.fsChain)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain)
+	}
+	if err != nil {
 		return s.makeStatusHeadResponse(req, err)
 	}
 
@@ -1114,7 +1130,12 @@ func (s *Server) Get(req *protoobject.GetRequest, gStream protoobject.ObjectServ
 		return s.sendStatusGetResponse(req, gStream, err)
 	}
 
-	if err = icrypto.VerifyRequestSignaturesWithContext(ctx, req); err != nil {
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.fsChain.ChainMagicNumber(), protoobject.ObjectService_Get_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignaturesWithContext(ctx, req)
+	}
+	if err != nil {
 		return s.sendStatusGetResponse(req, gStream, err)
 	}
 
@@ -2000,7 +2021,12 @@ func (s *Server) SearchV2Buffered(ctx context.Context, req *protoobject.SearchV2
 		return s.signSearchResponse(nil, err, req)
 	}
 
-	if err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain); err != nil {
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		err = icrypto.VerifyRequestSignature(ctx, req, s.fsChain.ChainMagicNumber(), protoobject.ObjectService_SearchV2_FullMethodName, s.fsChain)
+	} else {
+		err = icrypto.VerifyRequestSignaturesN3(ctx, req, s.fsChain)
+	}
+	if err != nil {
 		return s.signSearchResponse(nil, err, req)
 	}
 

@@ -36,6 +36,7 @@ type networkState struct {
 	epoch         atomic.Uint64
 	block         atomic.Uint32
 	epochDuration atomic.Uint64
+	magicNumber   uint64
 
 	controlNetStatus atomic.Value // control.NetmapStatus
 
@@ -44,14 +45,19 @@ type networkState struct {
 	metrics *metrics.NodeMetrics
 }
 
-func newNetworkState(l *zap.Logger) *networkState {
+func newNetworkState(l *zap.Logger, magicNumber uint64) *networkState {
 	var nmStatus atomic.Value
 	nmStatus.Store(control.NetmapStatus_STATUS_UNDEFINED)
 
 	return &networkState{
 		l:                l,
 		controlNetStatus: nmStatus,
+		magicNumber:      magicNumber,
 	}
+}
+
+func (s *networkState) ChainMagicNumber() uint64 {
+	return s.magicNumber
 }
 
 func (s *networkState) CurrentEpoch() uint64 {
@@ -153,7 +159,7 @@ func initNetmapService(c *cfg) {
 
 	initNetmapState(c)
 
-	server := netmapService.New(&c.key.PrivateKey, c, &c.chainTime)
+	server := netmapService.New(&c.key.PrivateKey, c.networkState.magicNumber, c, &c.chainTime)
 
 	c.cfgGRPC.registerService(func(srv *grpc.Server) {
 		protonetmap.RegisterNetmapServiceServer(srv, server)
