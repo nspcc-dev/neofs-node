@@ -393,10 +393,14 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		return s.makeFailedPutResponse(err, req)
 	}
 
-	reqBody := req.GetBody()
-	mSig := reqBody.GetSignature()
-	if mSig == nil {
-		return s.makeFailedPutResponse(errors.New("missing container signature"), req)
+	var (
+		reqMetaHeader = req.GetMetaHeader()
+		reqBody       = req.GetBody()
+		wholeReqSign  = ownerMustSignWholeRequest(reqMetaHeader)
+	)
+	sigKey, sig, err := extractOwnerSignature(reqMetaHeader, req.GetVerifyHeader(), req.GetBody().GetSignature(), "missing container signature")
+	if err != nil {
+		return s.makeFailedPutResponse(err, req)
 	}
 	mCnr := reqBody.GetContainer()
 	if mCnr == nil {
@@ -411,7 +415,6 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 		return s.makeFailedPutResponse(fmt.Errorf("invalid container: %w", err), req)
 	}
 
-	var reqMetaHeader = req.GetMetaHeader()
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerPut, cid.ID{})
 	if err != nil {
 		return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
@@ -450,24 +453,26 @@ func (s *Server) Put(ctx context.Context, req *protocontainer.PutRequest) (*prot
 			return s.makeFailedPutResponse(fmt.Errorf("verify session token v2: %w", err), req)
 		}
 
-		sig := reqBody.GetEaclSignature()
-		if sig == nil {
-			return s.makeFailedPutResponse(errors.New("missing signature message for optional eACL table"), req)
-		}
-		eaclSig = sig.GetSign()
-		if eaclSig == nil {
-			return s.makeFailedPutResponse(errors.New("missing signature for optional eACL table"), req)
-		}
-		eaclPub = sig.GetKey()
-		if eaclPub == nil {
-			return s.makeFailedPutResponse(errors.New("missing signature key for optional eACL table"), req)
+		if !wholeReqSign {
+			sig := reqBody.GetEaclSignature()
+			if sig == nil {
+				return s.makeFailedPutResponse(errors.New("missing signature message for optional eACL table"), req)
+			}
+			eaclSig = sig.GetSign()
+			if eaclSig == nil {
+				return s.makeFailedPutResponse(errors.New("missing signature for optional eACL table"), req)
+			}
+			eaclPub = sig.GetKey()
+			if eaclPub == nil {
+				return s.makeFailedPutResponse(errors.New("missing signature key for optional eACL table"), req)
+			}
 		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	id, err := s.contract.Put(ctx, cnr, mSig.Key, mSig.Sign, tokenBytes, eACL, eaclPub, eaclSig, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
+	id, err := s.contract.Put(ctx, cnr, sigKey, sig, tokenBytes, eACL, eaclPub, eaclSig, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 	if err != nil && !errors.Is(err, apistatus.ErrContainerAwaitTimeout) {
 		return s.makeFailedPutResponse(err, req)
 	}
@@ -499,10 +504,13 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 		return s.makeDeleteResponse(err, req)
 	}
 
-	reqBody := req.GetBody()
-	mSig := reqBody.GetSignature()
-	if mSig == nil {
-		return s.makeDeleteResponse(errors.New("missing ID signature"), req)
+	var (
+		reqMetaHeader = req.GetMetaHeader()
+		reqBody       = req.GetBody()
+	)
+	sigKey, sig, err := extractOwnerSignature(reqMetaHeader, req.GetVerifyHeader(), req.GetBody().GetSignature(), "missing ID signature")
+	if err != nil {
+		return s.makeDeleteResponse(err, req)
 	}
 	mID := reqBody.GetContainerId()
 	if mID == nil {
@@ -514,7 +522,6 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 		return s.makeDeleteResponse(fmt.Errorf("invalid ID: %w", err), req)
 	}
 
-	var reqMetaHeader = req.GetMetaHeader()
 	stV2, tokenBytes, err := s.getVerifiedSessionTokenV2FromMetaHeader(reqMetaHeader, sessionv2.VerbContainerDelete, id)
 	if err != nil {
 		return s.makeDeleteResponse(fmt.Errorf("verify session token v2: %w", err), req)
@@ -533,7 +540,7 @@ func (s *Server) Delete(ctx context.Context, req *protocontainer.DeleteRequest) 
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	err = s.contract.Delete(ctx, id, mSig.Key, mSig.Sign, tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
+	err = s.contract.Delete(ctx, id, sigKey, sig, tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 
 	return s.makeDeleteResponse(err, req)
 }
@@ -662,10 +669,13 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(err, req)
 	}
 
-	reqBody := req.GetBody()
-	mSig := reqBody.GetSignature()
-	if mSig == nil {
-		return s.makeSetEACLResponse(errors.New("missing eACL signature"), req)
+	var (
+		reqMetaHeader = req.GetMetaHeader()
+		reqBody       = req.GetBody()
+	)
+	sigKey, sig, err := extractOwnerSignature(reqMetaHeader, req.GetVerifyHeader(), req.GetBody().GetSignature(), "missing eACL signature")
+	if err != nil {
+		return s.makeSetEACLResponse(err, req)
 	}
 	mEACL := reqBody.GetEacl()
 	if mEACL == nil {
@@ -682,7 +692,6 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 		return s.makeSetEACLResponse(errors.New("missing container ID in eACL table"), req)
 	}
 
-	var reqMetaHeader = req.GetMetaHeader()
 	if err := s.checkContainerRevision(reqMetaHeader, reqBody.GetContainerRevision(), cnrID); err != nil {
 		return s.makeSetEACLResponse(err, req)
 	}
@@ -705,7 +714,7 @@ func (s *Server) SetExtendedACL(ctx context.Context, req *protocontainer.SetExte
 	ctx, cancel := context.WithTimeout(ctx, defaultTxAwaitTimeout)
 	defer cancel()
 
-	err = s.contract.PutEACL(ctx, eACL, mSig.Key, mSig.Sign, tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
+	err = s.contract.PutEACL(ctx, eACL, sigKey, sig, tokenBytes, marshalRequest(reqBody, reqMetaHeader, req.GetVerifyHeader()))
 
 	return s.makeSetEACLResponse(err, req)
 }
@@ -1093,4 +1102,31 @@ func marshalRequest[B protoencoding.Message](reqBody B, reqMetaHeader *protosess
 	protoencoding.WriteRequestVerificationHeaderMessage(buf[off:], vHeader)
 
 	return buf
+}
+
+func ownerMustSignWholeRequest(metaH *protosession.RequestMetaHeader) bool {
+	if v := metaH.GetVersion(); v == nil || (v.Major == 2 && v.Minor < 29) || v.Major < 2 {
+		return false
+	}
+
+	return true
+}
+
+func extractOwnerSignature(
+	metaH *protosession.RequestMetaHeader,
+	vh *protosession.RequestVerificationHeader,
+	bodySig *refs.SignatureRFC6979,
+	bodyErrMsg string,
+) (key, sign []byte, err error) {
+	if ownerMustSignWholeRequest(metaH) {
+		reqSig := vh.GetRequestSignature()
+		if reqSig == nil {
+			return nil, nil, errors.New("missing request owner's signature")
+		}
+		return reqSig.GetKey(), reqSig.GetSign(), nil
+	}
+	if bodySig == nil {
+		return nil, nil, errors.New(bodyErrMsg)
+	}
+	return bodySig.GetKey(), bodySig.GetSign(), nil
 }

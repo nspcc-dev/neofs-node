@@ -83,11 +83,53 @@ func (cp *Processor) processCreateContainerRequest(req containerEvent.CreateCont
 			}
 		}
 
-		err = cp.checkSetEACL(*req.EACLTable, table, id, cnr)
-		if err != nil {
-			cp.log.Error("additional eACL with container creation check failed",
-				zap.Stringer("cid", id), zap.Error(err))
-			return
+		if specialFieldSigned(apiReq.GetMetaHeader()) {
+			err = cp.checkSetEACL(*req.EACLTable, table, id, cnr)
+			if err != nil {
+				cp.log.Error("additional eACL with container creation check failed",
+					zap.Stringer("cid", id), zap.Error(err))
+				return
+			}
+		} else {
+			// in this case there is nothing to check regarding signatures, it is
+			// a part of a ContainerPut request that has been signed and already
+			// checked; only session (if any, and only v2 for current API version)
+			// check should be extended to SetEACL
+
+			err = validateEACL(table)
+			if err != nil {
+				cp.log.Error("additional eACL table validation failed",
+					zap.Stringer("cid", id), zap.Error(err))
+				return
+			}
+
+			// ACL extensions can be disabled by basic ACL, check it
+			if !cnr.BasicACL().Extendable() {
+				cp.log.Error("additional eACL table is attached to non-extendable container",
+					zap.Stringer("cid", id))
+				return
+			}
+
+			var metaHeader = apiReq.GetMetaHeader()
+			if metaHeader.GetSessionToken() != nil {
+				cp.log.Error("v1 session token cannot authenticate additional eACL table creation for container",
+					zap.Stringer("cid", id))
+				return
+			}
+			if mTokV2 := metaHeader.GetSessionTokenV2(); mTokV2 != nil {
+				var tokV2 sessionv2.Token
+				if err = tokV2.FromProtoMessage(mTokV2); err != nil {
+					cp.log.Error("session v2 token decoding in additional eACL table validation",
+						zap.Stringer("cid", id), zap.Error(err))
+					return
+				}
+
+				if !tokV2.AssertContainer(sessionv2.VerbContainerSetEACL, id) {
+					cp.log.Error("session v2 does not authenticate additional eACL table creation for container",
+						zap.Stringer("cid", id))
+					return
+				}
+			}
 		}
 
 		// optional eACL setting operation is included in the full main

@@ -77,6 +77,8 @@ func TestProcessCreateContainerRequestEACL(t *testing.T) {
 		}, logs
 	}
 
+	v228 := version.New(2, 28)
+
 	makeRequest := func(t *testing.T, reqSigner, eACLSigner neofscrypto.Signer, st *sessionv2.Token) containerEvent.CreateContainerV2Request {
 		eACLSig, err := eACLSigner.Sign(tableBytes)
 		require.NoError(t, err)
@@ -98,7 +100,7 @@ func TestProcessCreateContainerRequestEACL(t *testing.T) {
 				},
 			},
 			MetaHeader: &protosession.RequestMetaHeader{
-				Version:        version.Current().ProtoMessage(),
+				Version:        v228.ProtoMessage(),
 				ValidUntilTime: uint64(time.Now().Add(time.Minute).Unix()),
 			},
 		}
