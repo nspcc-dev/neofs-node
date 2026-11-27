@@ -559,6 +559,205 @@ func TestService_Get_EC(t *testing.T) {
 				require.Equal(t, parentPayload[tc.off:tc.off+length], w.buf.Bytes())
 			})
 		}
+
+		t.Run("closes non-zero header stream", func(t *testing.T) {
+			prev := nodeSvcs[0].localObjects
+			t.Cleanup(func() { nodeSvcs[0].localObjects = prev })
+			nodeSvcs[0].localObjects = &mockLocalObjects{}
+
+			var closer mockIOCloser
+			svc := New(&mockNeoFSNet{
+				getNodesForObject: getNodesMap,
+				localPubKey:       nodeLists[0][1].PublicKey(),
+			})
+			svc.keyStore = tc
+			svc.conns = tc
+			svc.localObjects = &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: 1}}: {
+						hdr: *partObjs[1].CutPayload(),
+						pld: parts[1],
+						rdr: ioReadCloser{Reader: bytes.NewReader(parts[1]), Closer: &closer},
+					},
+				},
+			}
+
+			off := partLen + 10
+			const length = 20
+			var w mockObjectWriter
+			var prm Prm
+			prm.WithAddress(parentAddr)
+			prm.SetCommonParameters(cp)
+			prm.SetObjectWriter(&w)
+			prm.MarkPayloadOnly()
+			rng := object.NewRange()
+			rng.SetOffset(uint64(off))
+			rng.SetLength(length)
+			prm.SetRange(rng)
+
+			require.NoError(t, svc.Get(ctx, prm))
+			require.Equal(t, parentPayload[off:off+length], w.buf.Bytes())
+			require.EqualValues(t, 1, closer.count.Load())
+		})
+
+		t.Run("stops on non-retryable part zero error", func(t *testing.T) {
+			prev0, prev1 := nodeSvcs[0].localObjects, nodeSvcs[1].localObjects
+			t.Cleanup(func() {
+				nodeSvcs[0].localObjects = prev0
+				nodeSvcs[1].localObjects = prev1
+			})
+			nodeSvcs[0].localObjects = &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: 0}}: {
+						err: apistatus.ErrObjectAlreadyRemoved,
+					},
+				},
+			}
+			part1Storage := &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: 1}}: {
+						hdr: *partObjs[1].CutPayload(),
+						pld: parts[1],
+						rdr: io.NopCloser(bytes.NewReader(parts[1])),
+					},
+				},
+			}
+			nodeSvcs[1].localObjects = part1Storage
+
+			var w mockObjectWriter
+			var prm Prm
+			prm.WithAddress(parentAddr)
+			prm.SetCommonParameters(cp)
+			prm.SetObjectWriter(&w)
+			prm.MarkPayloadOnly()
+			rng := object.NewRange()
+			rng.SetOffset(10)
+			rng.SetLength(20)
+			prm.SetRange(rng)
+
+			require.ErrorIs(t, newService(t).Get(ctx, prm), apistatus.ErrObjectAlreadyRemoved)
+			require.Zero(t, part1Storage.getECPartCount.Load())
+		})
+
+		t.Run("size-split linker from non-zero part", func(t *testing.T) {
+			var splitParentHdr object.Object
+			splitParentHdr.SetContainerID(cnr)
+			splitParentHdr.SetPayloadSize(uint64(len(parentPayload)))
+			require.NoError(t, splitParentHdr.CalculateAndSetID())
+			splitParentID := splitParentHdr.GetID()
+			splitParentAddr := oid.NewAddress(cnr, splitParentID)
+
+			var child object.MeasuredObject
+			child.SetObjectID(parentID)
+			child.SetObjectSize(uint32(len(parentPayload)))
+			var link object.Link
+			link.SetObjects([]object.MeasuredObject{child})
+
+			var linker object.Object
+			linker.SetContainerID(cnr)
+			linker.SetType(object.TypeLink)
+			linker.SetParent(&splitParentHdr)
+			linker.WriteLink(link)
+			linker.SetPayloadSize(uint64(len(linker.Payload())))
+			require.NoError(t, linker.CalculateAndSetID())
+
+			nodesMap := map[oid.Address]getNodesForObjectValue{
+				parentAddr:      {nodeSets: nodeLists, ecRules: []iec.Rule{rule}},
+				splitParentAddr: {nodeSets: nodeLists, ecRules: []iec.Rule{rule}},
+			}
+
+			var closer mockIOCloser
+			svc := New(&mockNeoFSNet{
+				getNodesForObject: nodesMap,
+				localPubKey:       nodeLists[0][1].PublicKey(),
+			}, WithMaxObjectSizeSource(testMaxObjectSize(linker.PayloadSize())))
+			svc.keyStore = tc
+			svc.conns = tc
+			svc.localObjects = &mockLocalObjects{
+				getECPart: map[getECPartKey]getECPartValue{
+					{cnr: cnr, parent: splitParentID, pi: iec.PartInfo{Index: 1}}: {
+						hdr: *linker.CutPayload(),
+						rdr: ioReadCloser{Reader: bytes.NewReader(linker.Payload()), Closer: &closer},
+					},
+					{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: 1}}: {
+						hdr: *partObjs[1].CutPayload(),
+						pld: parts[1],
+						rdr: io.NopCloser(bytes.NewReader(parts[1])),
+					},
+				},
+			}
+
+			off := partLen + 10
+			const length = 20
+			var w mockObjectWriter
+			var prm Prm
+			prm.WithAddress(splitParentAddr)
+			prm.SetCommonParameters(cp)
+			prm.SetObjectWriter(&w)
+			prm.MarkPayloadOnly()
+			rng := object.NewRange()
+			rng.SetOffset(uint64(off))
+			rng.SetLength(length)
+			prm.SetRange(rng)
+
+			require.NoError(t, svc.Get(ctx, prm))
+			require.Equal(t, parentPayload[off:off+length], w.buf.Bytes())
+			require.EqualValues(t, 1, closer.count.Load())
+		})
+
+		t.Run("extended ranged GET", func(t *testing.T) {
+			for i := range nodeSvcs {
+				storage := &mockLocalObjects{}
+				if i != 0 {
+					storage.getECPart = map[getECPartKey]getECPartValue{
+						{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: i}}: {
+							hdr: *partObjs[i].CutPayload(),
+							pld: parts[i],
+							rdr: io.NopCloser(bytes.NewReader(parts[i])),
+						},
+					}
+				}
+				previous := nodeSvcs[i].localObjects
+				t.Cleanup(func() { nodeSvcs[i].localObjects = previous })
+				nodeSvcs[i].localObjects = storage
+			}
+
+			var w mockObjectWriter
+			var prm Prm
+			prm.WithAddress(parentAddr)
+			prm.SetCommonParameters(cp)
+			prm.SetObjectWriter(&w)
+			rng := object.NewRange()
+			rng.SetOffset(10)
+			rng.SetLength(20)
+			prm.SetRange(rng)
+
+			require.NoError(t, newService(t).Get(ctx, prm))
+			require.Equal(t, 1, w.writeHeaderCount)
+			require.Equal(t, parentHdr, w.hdr)
+			require.Equal(t, parentPayload[10:30], w.buf.Bytes())
+		})
+
+		t.Run("all parts missing", func(t *testing.T) {
+			for i := range nodeSvcs {
+				previous := nodeSvcs[i].localObjects
+				t.Cleanup(func() { nodeSvcs[i].localObjects = previous })
+				nodeSvcs[i].localObjects = &mockLocalObjects{}
+			}
+
+			var w mockObjectWriter
+			var prm Prm
+			prm.WithAddress(parentAddr)
+			prm.SetCommonParameters(cp)
+			prm.SetObjectWriter(&w)
+			prm.MarkPayloadOnly()
+			rng := object.NewRange()
+			rng.SetOffset(10)
+			rng.SetLength(20)
+			prm.SetRange(rng)
+
+			require.ErrorIs(t, newService(t).Get(ctx, prm), apistatus.ErrObjectNotFound)
+		})
 	})
 
 	t.Run("payload-only ranged GET validates header", func(t *testing.T) {
