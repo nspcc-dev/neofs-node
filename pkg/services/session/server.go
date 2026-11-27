@@ -30,20 +30,22 @@ type KeyStorage interface {
 
 type server struct {
 	protosession.UnimplementedSessionServiceServer
-	signer    *ecdsa.PrivateKey
-	keys      KeyStorage
-	chainTime timecore.Provider
+	signer      *ecdsa.PrivateKey
+	keys        KeyStorage
+	chainTime   timecore.Provider
+	magicNumber uint64
 }
 
 // New provides protosession.SessionServiceServer based on specified [KeyStorage].
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, ks KeyStorage, chainTime timecore.Provider) protosession.SessionServiceServer {
+func New(s *ecdsa.PrivateKey, ks KeyStorage, magicNumber uint64, chainTime timecore.Provider) protosession.SessionServiceServer {
 	return &server{
-		signer:    s,
-		keys:      ks,
-		chainTime: chainTime,
+		signer:      s,
+		keys:        ks,
+		chainTime:   chainTime,
+		magicNumber: magicNumber,
 	}
 }
 
@@ -77,7 +79,14 @@ func (s *server) Create(_ context.Context, req *protosession.CreateRequest) (*pr
 		return s.makeFailedCreateResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.magicNumber, protosession.SessionService_Create_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeFailedCreateResponse(err, req)
 	}
 

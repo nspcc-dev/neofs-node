@@ -803,6 +803,7 @@ func New(ctx context.Context, log *zap.Logger, cfg *config.Config, errChan chan<
 		MetaEnabled:     cfg.Experimental.ChainMetaData.Enabled,
 		AllowEC:         cfg.Experimental.AllowEC,
 		ChainTime:       &server.chainTime,
+		MagicNumber:     new(uint64(localWSClient.Network())),
 	})
 	if err != nil {
 		return nil, err

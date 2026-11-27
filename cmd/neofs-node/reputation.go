@@ -283,7 +283,14 @@ func (s *reputationServer) AnnounceLocalTrust(ctx context.Context, req *protorep
 		return s.makeLocalResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.networkState.magicNumber, protoreputation.ReputationService_AnnounceLocalTrust_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeLocalResponse(err, req)
 	}
 
@@ -327,7 +334,14 @@ func (s *reputationServer) AnnounceIntermediateResult(ctx context.Context, req *
 		return s.makeIntermediateResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.networkState.magicNumber, protoreputation.ReputationService_AnnounceIntermediateResult_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeIntermediateResponse(err, req)
 	}
 

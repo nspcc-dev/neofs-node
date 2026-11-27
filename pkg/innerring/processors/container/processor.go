@@ -12,9 +12,18 @@ import (
 	"github.com/nspcc-dev/neofs-node/pkg/morph/event"
 	containerEvent "github.com/nspcc-dev/neofs-node/pkg/morph/event/container"
 	"github.com/nspcc-dev/neofs-sdk-go/netmap"
+	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	"github.com/nspcc-dev/neofs-sdk-go/session/v2"
 	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
+)
+
+const (
+	containerDeleteMethod          = protocontainer.ContainerService_Delete_FullMethodName
+	containerPutMethod             = protocontainer.ContainerService_Put_FullMethodName
+	containerSetEACLMethod         = protocontainer.ContainerService_SetExtendedACL_FullMethodName
+	containerSetAttributeMethod    = protocontainer.ContainerService_SetAttributeV2_FullMethodName
+	containerRemoveAttributeMethod = protocontainer.ContainerService_RemoveAttributeV2_FullMethodName
 )
 
 type (
@@ -25,16 +34,17 @@ type (
 
 	// Processor of events produced by container contract in FS chain.
 	Processor struct {
-		log           *zap.Logger
-		pool          *ants.Pool
-		alphabetState AlphabetState
-		cnrClient     *container.Client // notary must be enabled
-		metaClient    processors.MetadataChain
-		netState      NetworkState
-		metaEnabled   bool
-		allowEC       bool
-		chainTime     timecore.Provider
-		resolver      session.NNSResolver
+		log              *zap.Logger
+		pool             *ants.Pool
+		alphabetState    AlphabetState
+		cnrClient        *container.Client // notary must be enabled
+		metaClient       processors.MetadataChain
+		netState         NetworkState
+		metaEnabled      bool
+		allowEC          bool
+		chainTime        timecore.Provider
+		chainMagicNumber uint64
+		resolver         session.NNSResolver
 	}
 
 	// Params of the processor constructor.
@@ -48,6 +58,7 @@ type (
 		MetaEnabled     bool
 		AllowEC         bool
 		ChainTime       timecore.Provider
+		MagicNumber     *uint64
 	}
 )
 
@@ -86,6 +97,8 @@ func New(p *Params) (*Processor, error) {
 		return nil, errors.New("ir/container: network state is not set")
 	case p.ChainTime == nil:
 		return nil, errors.New("ir/container: chain time provider is not set")
+	case p.MagicNumber == nil:
+		return nil, errors.New("ir/container: chain magic number is not set")
 	}
 
 	p.Log.Debug("container worker pool", zap.Int("size", p.PoolSize))
@@ -96,16 +109,17 @@ func New(p *Params) (*Processor, error) {
 	}
 
 	return &Processor{
-		log:           p.Log,
-		pool:          pool,
-		alphabetState: p.AlphabetState,
-		cnrClient:     p.ContainerClient,
-		netState:      p.NetworkState,
-		metaClient:    p.MetaClient,
-		metaEnabled:   p.MetaEnabled,
-		allowEC:       p.AllowEC,
-		chainTime:     p.ChainTime,
-		resolver:      nnscore.NewResolver(p.ContainerClient.Morph()),
+		log:              p.Log,
+		pool:             pool,
+		alphabetState:    p.AlphabetState,
+		cnrClient:        p.ContainerClient,
+		netState:         p.NetworkState,
+		metaClient:       p.MetaClient,
+		metaEnabled:      p.MetaEnabled,
+		allowEC:          p.AllowEC,
+		chainTime:        p.ChainTime,
+		resolver:         nnscore.NewResolver(p.ContainerClient.Morph()),
+		chainMagicNumber: *p.MagicNumber,
 	}, nil
 }
 

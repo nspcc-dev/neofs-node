@@ -29,9 +29,10 @@ type BalanceContract interface {
 
 type server struct {
 	protoaccounting.UnimplementedAccountingServiceServer
-	signer    *ecdsa.PrivateKey
-	contract  BalanceContract
-	chainTime timecore.Provider
+	signer      *ecdsa.PrivateKey
+	contract    BalanceContract
+	chainTime   timecore.Provider
+	magicNumber uint64
 }
 
 // New provides protoaccounting.AccountingServiceServer based on specified
@@ -39,11 +40,12 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, c BalanceContract, chainTime timecore.Provider) protoaccounting.AccountingServiceServer {
+func New(s *ecdsa.PrivateKey, magicNumber uint64, c BalanceContract, chainTime timecore.Provider) protoaccounting.AccountingServiceServer {
 	return &server{
-		signer:    s,
-		contract:  c,
-		chainTime: chainTime,
+		signer:      s,
+		contract:    c,
+		chainTime:   chainTime,
+		magicNumber: magicNumber,
 	}
 }
 
@@ -76,7 +78,14 @@ func (s *server) Balance(_ context.Context, req *protoaccounting.BalanceRequest)
 		return s.makeFailedBalanceResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.magicNumber, protoaccounting.AccountingService_Balance_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeFailedBalanceResponse(err, req)
 	}
 

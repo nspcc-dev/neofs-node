@@ -635,7 +635,7 @@ func newUnsignedLocalGetRequest(ver version.Version, addr oid.Address) *protoobj
 
 func signGetRequest(t *testing.T, req *protoobject.GetRequest, signer neofscrypto.Signer) {
 	var err error
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(signer, req, nil)
+	req.VerifyHeader, err = neofscrypto.SignRequest(signer, req, magicNumber, protoobject.ObjectService_Get_FullMethodName, nil)
 	require.NoError(t, err)
 }
 

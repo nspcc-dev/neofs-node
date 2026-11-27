@@ -37,6 +37,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const magicNumber = 82756
+
 type unimplementedFSChain struct{}
 
 func (c unimplementedFSChain) MsPerBlock() (int64, error) {
@@ -96,7 +98,21 @@ func (unimplementedNetmapContract) GetEpochBlockByTime(uint32) (uint32, error) {
 }
 
 type testNodeState struct {
-	epoch uint64
+	epoch         uint64
+	currBlock     uint32
+	epochDuration uint64
+}
+
+func (x testNodeState) ChainMagicNumber() uint64 {
+	return magicNumber
+}
+
+func (x testNodeState) CurrentBlock() uint32 {
+	return x.currBlock
+}
+
+func (x testNodeState) CurrentEpochDuration() uint64 {
+	return x.epochDuration
 }
 
 func (x testNodeState) CurrentEpoch() uint64 { return x.epoch }
@@ -199,7 +215,7 @@ func makeDeleteRequestWithSessionMessage(t testing.TB, usr usertest.UserSigner, 
 		},
 	}
 
-	req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(neofsecdsa.Signer(usr.ECDSAPrivateKey), req, nil)
+	req.VerifyHeader, err = neofscrypto.SignRequest(neofsecdsa.Signer(usr.ECDSAPrivateKey), req, magicNumber, protocontainer.ContainerService_Delete_FullMethodName, nil)
 	require.NoError(t, err)
 
 	return req
@@ -469,7 +485,7 @@ func TestSessionVerb(t *testing.T) {
 			ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 		},
 	}
-	delReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(owner, delReq, nil)
+	delReq.VerifyHeader, err = neofscrypto.SignRequest(owner, delReq, magicNumber, protocontainer.ContainerService_Delete_FullMethodName, nil)
 	require.NoError(t, err)
 
 	delResp, err := s.Delete(context.Background(), delReq)
@@ -526,7 +542,7 @@ func TestServer_Put(t *testing.T) {
 				// EaclSignature deliberately omitted.
 			},
 			MetaHeader: &protosession.RequestMetaHeader{
-				Version:        &refs.Version{Major: version.Current().Major(), Minor: version.Current().Minor()},
+				Version:        &refs.Version{Major: version.Current().Major(), Minor: 28},
 				ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 			},
 		}
@@ -602,7 +618,7 @@ func TestServer_SetExtendedACL_InvalidRequest(t *testing.T) {
 		}
 
 		var err error
-		req.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(usr, req, nil)
+		req.VerifyHeader, err = neofscrypto.SignRequest(usr, req, magicNumber, protocontainer.ContainerService_Delete_FullMethodName, nil)
 		require.NoError(t, err)
 
 		resp, err := svc.SetExtendedACL(ctx, req)
@@ -867,7 +883,7 @@ func TestService_TokenV2(t *testing.T) {
 			},
 		}
 
-		delReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(owner, delReq, nil)
+		delReq.VerifyHeader, err = neofscrypto.SignRequest(owner, delReq, magicNumber, protocontainer.ContainerService_Delete_FullMethodName, nil)
 		require.NoError(t, err)
 		return delReq
 	}

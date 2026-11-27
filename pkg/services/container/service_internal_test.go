@@ -21,6 +21,18 @@ import (
 type nopNetwork struct {
 }
 
+func (n nopNetwork) ChainMagicNumber() uint64 {
+	return 123
+}
+
+func (n nopNetwork) CurrentBlock() uint32 {
+	return 456
+}
+
+func (n nopNetwork) CurrentEpochDuration() uint64 {
+	return 789
+}
+
 func (nopNetwork) CurrentEpoch() uint64 {
 	return 0
 }

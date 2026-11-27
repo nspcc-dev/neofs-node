@@ -30,9 +30,10 @@ type Contract interface {
 
 type server struct {
 	protonetmap.UnimplementedNetmapServiceServer
-	signer    *ecdsa.PrivateKey
-	contract  Contract
-	chainTime timecore.Provider
+	signer      *ecdsa.PrivateKey
+	contract    Contract
+	chainTime   timecore.Provider
+	magicNumber uint64
 }
 
 // New provides protocontainer.NetmapServiceServer based on specified
@@ -40,11 +41,12 @@ type server struct {
 //
 // All response messages are signed using specified signer and have current
 // epoch in the meta header.
-func New(s *ecdsa.PrivateKey, c Contract, chainTime timecore.Provider) protonetmap.NetmapServiceServer {
+func New(s *ecdsa.PrivateKey, magicNumber uint64, c Contract, chainTime timecore.Provider) protonetmap.NetmapServiceServer {
 	return &server{
-		signer:    s,
-		contract:  c,
-		chainTime: chainTime,
+		signer:      s,
+		contract:    c,
+		chainTime:   chainTime,
+		magicNumber: magicNumber,
 	}
 }
 
@@ -85,7 +87,14 @@ func (s server) LocalNodeInfo(_ context.Context, req *protonetmap.LocalNodeInfoR
 		return s.makeStatusNodeInfoResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.magicNumber, protonetmap.NetmapService_LocalNodeInfo_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeStatusNodeInfoResponse(err, req)
 	}
 
@@ -123,7 +132,14 @@ func (s *server) NetworkInfo(_ context.Context, req *protonetmap.NetworkInfoRequ
 		return s.makeStatusNetInfoResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.magicNumber, protonetmap.NetmapService_NetworkInfo_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeStatusNetInfoResponse(err, req)
 	}
 
@@ -159,7 +175,14 @@ func (s *server) NetmapSnapshot(_ context.Context, req *protonetmap.NetmapSnapsh
 		return s.makeStatusNetmapResponse(err, req)
 	}
 
-	if err := icrypto.VerifyRequestSignatures(req); err != nil {
+	var err error
+	if util.NewSignatureSchemeRequest(req.GetMetaHeader()) {
+		//nolint:contextcheck,staticcheck // the context is omitted intentionally, it is only for signature skip
+		err = icrypto.VerifyRequestSignature(nil, req, s.magicNumber, protonetmap.NetmapService_NetmapSnapshot_FullMethodName, nil)
+	} else {
+		err = icrypto.VerifyRequestSignatures(req)
+	}
+	if err != nil {
 		return s.makeStatusNetmapResponse(err, req)
 	}
 

@@ -95,6 +95,10 @@ func (x noCallObjectService) Delete(context.Context, deletesvc.Prm) error {
 
 type noCallTestFSChain struct{}
 
+func (c *noCallTestFSChain) ChainMagicNumber() uint64 {
+	panic("must not be called")
+}
+
 func (*noCallTestFSChain) ForEachContainerNodePublicKey(cid.ID, func([]byte) bool) error {
 	panic("must not be called")
 }
@@ -839,7 +843,13 @@ func TestServer_Replicate(t *testing.T) {
 	})
 }
 
+const magicNumber = 98765
+
 type nopFSChain struct{}
+
+func (x nopFSChain) ChainMagicNumber() uint64 {
+	return magicNumber
+}
 
 func (x nopFSChain) InvokeContainedScript(*transaction.Transaction, *block.Header, *trigger.Type, *bool) (*result.Invoke, error) {
 	return &result.Invoke{

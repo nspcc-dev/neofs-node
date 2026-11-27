@@ -92,7 +92,7 @@ func (cp *Processor) checkSetEACL(req cnrevent.PutContainerEACLRequest, table ea
 			return fmt.Errorf("container ID in the original request does not match the contract one")
 		}
 
-		return cp.checkOriginalRequest(cnr, cID, session.VerbContainerSetEACL, sessionv2.VerbContainerSetEACL, apiReq.GetBody(), apiReq.GetMetaHeader(), apiReq.GetVerifyHeader())
+		return cp.checkOriginalRequest(containerSetEACLMethod, cnr, cID, session.VerbContainerSetEACL, sessionv2.VerbContainerSetEACL, apiReq.GetBody(), apiReq.GetMetaHeader(), apiReq.GetVerifyHeader())
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
