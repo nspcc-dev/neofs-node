@@ -277,6 +277,7 @@ var reqMetaHdrCommon = &protosession.RequestMetaHeader{
 		},
 		Signature: &refs.Signature{Key: []byte("any_pub"), Sign: []byte("any_sig"), Scheme: 1375722142},
 	},
+	//nolint:staticcheck // this is and old test
 	MagicNumber: 14001122173143970642,
 }
 
