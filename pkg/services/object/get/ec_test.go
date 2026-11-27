@@ -516,6 +516,51 @@ func TestService_Get_EC(t *testing.T) {
 		}
 	}
 
+	t.Run("ranged GET without part zero", func(t *testing.T) {
+		partLen := len(parts[0])
+		for _, tc := range []struct {
+			name string
+			off  int
+		}{
+			{name: "inside missing part", off: 10},
+			{name: "inside available part", off: partLen + 10},
+			{name: "across part boundary", off: partLen - 10},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				for i := range nodeSvcs {
+					storage := &mockLocalObjects{}
+					if i != 0 {
+						storage.getECPart = map[getECPartKey]getECPartValue{
+							{cnr: cnr, parent: parentID, pi: iec.PartInfo{Index: i}}: {
+								hdr: *partObjs[i].CutPayload(),
+								pld: parts[i],
+								rdr: io.NopCloser(bytes.NewReader(parts[i])),
+							},
+						}
+					}
+					previous := nodeSvcs[i].localObjects
+					t.Cleanup(func() { nodeSvcs[i].localObjects = previous })
+					nodeSvcs[i].localObjects = storage
+				}
+
+				const length = 20
+				var w mockObjectWriter
+				var prm Prm
+				prm.WithAddress(parentAddr)
+				prm.SetCommonParameters(cp)
+				prm.SetObjectWriter(&w)
+				prm.MarkPayloadOnly()
+				rng := object.NewRange()
+				rng.SetOffset(uint64(tc.off))
+				rng.SetLength(length)
+				prm.SetRange(rng)
+
+				require.NoError(t, newService(t).Get(ctx, prm))
+				require.Equal(t, parentPayload[tc.off:tc.off+length], w.buf.Bytes())
+			})
+		}
+	})
+
 	t.Run("payload-only ranged GET validates header", func(t *testing.T) {
 		tc.headCalls = 0
 		writer := &validatingChunkWriter{}
