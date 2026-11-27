@@ -526,7 +526,7 @@ func TestServer_Put(t *testing.T) {
 				// EaclSignature deliberately omitted.
 			},
 			MetaHeader: &protosession.RequestMetaHeader{
-				Version:        &refs.Version{Major: version.Current().Major(), Minor: version.Current().Minor()},
+				Version:        &refs.Version{Major: version.Current().Major(), Minor: 28},
 				ValidUntilTime: uint64(time.Now().Add(30 * time.Second).UTC().Unix()),
 			},
 		}
