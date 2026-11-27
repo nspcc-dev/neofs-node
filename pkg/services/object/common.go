@@ -211,6 +211,16 @@ func (s *Server) checkContainerRevision(clientCnrRev uint64, cID cid.ID) error {
 		return fmt.Errorf("fetching container from FS chain: %w", err)
 	}
 
+	if clientCnrRev > cnr.Revision() {
+		// server's data may be outdated, try to fetch the newer one
+		if r, ok := s.fsChain.(interface{ ResetContainer(cid.ID) }); ok {
+			r.ResetContainer(cID)
+			if cnr, err = s.fsChain.Get(cID); err != nil {
+				return fmt.Errorf("fetching container from FS chain: %w", err)
+			}
+		}
+	}
+
 	if srvCnrRev := cnr.Revision(); clientCnrRev != srvCnrRev {
 		return apistatus.NewContainerRevisionMismatch(fmt.Sprintf(
 			"container revision does not match: requested: %d, server's: %d", clientCnrRev, srvCnrRev))
