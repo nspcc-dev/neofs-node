@@ -38,6 +38,8 @@ type testChainTime struct{}
 func (testChainTime) Now() time.Time { return time.Now() }
 
 func TestProcessCreateContainerRequestEACL(t *testing.T) {
+	const magicNumber = 79287576
+
 	owner := usertest.User()
 
 	var policy netmap.PlacementPolicy
@@ -69,11 +71,12 @@ func TestProcessCreateContainerRequestEACL(t *testing.T) {
 		require.NoError(t, err)
 		core, logs := observer.New(zap.DebugLevel)
 		return &Processor{
-			log:           zap.New(core),
-			alphabetState: testAlphabetState{},
-			cnrClient:     cnrCli,
-			chainTime:     testChainTime{},
-			resolver:      nnscore.NewResolver(cnrCli.Morph()),
+			log:              zap.New(core),
+			alphabetState:    testAlphabetState{},
+			cnrClient:        cnrCli,
+			chainTime:        testChainTime{},
+			resolver:         nnscore.NewResolver(cnrCli.Morph()),
+			chainMagicNumber: magicNumber,
 		}, logs
 	}
 
@@ -107,7 +110,7 @@ func TestProcessCreateContainerRequestEACL(t *testing.T) {
 			apiReq.MetaHeader.SessionTokenV2 = st.ProtoMessage()
 			stBytes = st.Marshal()
 		}
-		apiReq.VerifyHeader, err = neofscrypto.SignRequestWithBuffer(reqSigner, apiReq, nil)
+		apiReq.VerifyHeader, err = neofscrypto.SignRequest(reqSigner, apiReq, magicNumber, protocontainer.ContainerService_Put_FullMethodName, nil)
 		require.NoError(t, err)
 
 		origReq, err := proto.Marshal(apiReq)

@@ -2,6 +2,7 @@ package container
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	"github.com/nspcc-dev/neofs-sdk-go/eacl"
 	protocontainer "github.com/nspcc-dev/neofs-sdk-go/proto/container"
 	protoencoding "github.com/nspcc-dev/neofs-sdk-go/proto/encoding"
+	"github.com/nspcc-dev/neofs-sdk-go/proto/refs"
 	protosession "github.com/nspcc-dev/neofs-sdk-go/proto/session"
 	"github.com/nspcc-dev/neofs-sdk-go/session"
 	sessionv2 "github.com/nspcc-dev/neofs-sdk-go/session/v2"
@@ -156,7 +158,7 @@ func (cp *Processor) checkPutContainer(cnr container.Container, cnrBytes []byte,
 			return nil, fmt.Errorf("container in the original request does not match the contract one")
 		}
 
-		return &apiReq, cp.checkOriginalRequest(cnr, cid.ID{}, session.VerbContainerPut, sessionv2.VerbContainerPut, body, apiReq.GetMetaHeader(), apiReq.GetVerifyHeader())
+		return &apiReq, cp.checkOriginalRequest(containerPutMethod, cnr, cid.ID{}, session.VerbContainerPut, sessionv2.VerbContainerPut, body, apiReq.GetMetaHeader(), apiReq.GetVerifyHeader())
 	}
 
 	err := cp.verifySignature(signatureVerificationData{
@@ -301,7 +303,7 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 			return fmt.Errorf("container ID in the original request does not match the contract one")
 		}
 
-		return cp.checkOriginalRequest(cnr, idCnr, session.VerbContainerDelete, sessionv2.VerbContainerDelete, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
+		return cp.checkOriginalRequest(containerDeleteMethod, cnr, idCnr, session.VerbContainerDelete, sessionv2.VerbContainerDelete, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
 	}
 
 	err = cp.verifySignature(signatureVerificationData{
@@ -322,7 +324,7 @@ func (cp *Processor) checkDeleteContainer(req containerEvent.RemoveContainerRequ
 	return nil
 }
 
-func (cp *Processor) checkOriginalRequest(cnr container.Container, cnrID cid.ID, verbV1 session.ContainerVerb, verbV2 sessionv2.Verb, reqBody protoencoding.Message, reqMetaHeader *protosession.RequestMetaHeader, reqVerifHeader *protosession.RequestVerificationHeader) error {
+func (cp *Processor) checkOriginalRequest(method string, cnr container.Container, cnrID cid.ID, verbV1 session.ContainerVerb, verbV2 sessionv2.Verb, reqBody protoencoding.Message, reqMetaHeader *protosession.RequestMetaHeader, reqVerifHeader *protosession.RequestVerificationHeader) error {
 	if err := util.VerifyRequestAPIVersion(reqMetaHeader.GetVersion()); err != nil {
 		return fmt.Errorf("invalid request API version: %w", err)
 	}
@@ -383,7 +385,16 @@ func (cp *Processor) checkOriginalRequest(cnr container.Container, cnrID cid.ID,
 			panic(fmt.Sprintf("unexpected body in container service check: %v", b))
 		}
 	} else {
-		signedData, _ = protoencoding.EncodeRequest(nil, reqBody, reqMetaHeader)
+		encodedRequest, ln := protoencoding.EncodeRequest(nil, reqBody, reqMetaHeader)
+		hash := sha256.Sum256(encodedRequest[:ln])
+		sd := refs.RequestSignData{
+			MagicNumber: cp.chainMagicNumber,
+			Method:      method,
+			RequestHash: hash[:],
+		}
+		signedData = make([]byte, sd.MarshaledSize())
+		sd.MarshalStable(signedData)
+
 		sig = reqVerifHeader.GetRequestSignature()
 	}
 
@@ -520,7 +531,7 @@ func (cp *Processor) checkSetAttributeRequest(req containerEvent.SetAttributeReq
 			return fmt.Errorf("attribute value in the original request (%s) does not match the contract one (%s)", body.Value, req.Value)
 		}
 
-		return cp.checkOriginalRequest(cnr, id, session.VerbContainerSetAttribute, sessionv2.VerbContainerSetAttribute, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
+		return cp.checkOriginalRequest(containerSetAttributeMethod, cnr, id, session.VerbContainerSetAttribute, sessionv2.VerbContainerSetAttribute, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
 	}
 
 	//nolint:staticcheck // we are the server that deprecated it, still need the support
@@ -624,7 +635,7 @@ func (cp *Processor) checkRemoveAttributeRequest(req containerEvent.RemoveAttrib
 			return fmt.Errorf("attribute in the original request (%s) does not match the contract one (%s)", body.Attribute, req.Attribute)
 		}
 
-		return cp.checkOriginalRequest(cnr, id, session.VerbContainerRemoveAttribute, sessionv2.VerbContainerRemoveAttribute, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
+		return cp.checkOriginalRequest(containerRemoveAttributeMethod, cnr, id, session.VerbContainerRemoveAttribute, sessionv2.VerbContainerRemoveAttribute, body, origReq.GetMetaHeader(), origReq.GetVerifyHeader())
 	}
 
 	//nolint:staticcheck // we are the server that deprecated it, still need the support

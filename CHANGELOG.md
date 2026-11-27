@@ -7,6 +7,7 @@ Changelog for NeoFS Node
 - Support for minimum EC parts required for successful PUT (#4267, #4370)
 - Support of container *AttributeV2 RPC requests (#4268)
 - Support for container policies with limited number of additional nodes (#4269, #4302)
+- API 2.29 signatures support (#4379)
 
 ### Fixed
 - Shard object counters, payload size, and container size metrics drifted after reviving an object (#4309)
